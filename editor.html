@@ -1,0 +1,940 @@
+﻿<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1.0,maximum-scale=1.0"
+    />
+    <title>シートをカスタマイズ</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body class="page-editor">
+    <header class="hd">
+      <div class="hd-top">
+        <input
+          type="text"
+          id="templateNameInput"
+          class="hd-name-input"
+          placeholder="◯◯さん用（未入力：無題テンプレート）"
+          maxlength="60"
+        />
+        <div class="hd-acts">
+          <button class="btn btn-save" id="saveBtn">
+            💾 保存してシートを開く
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <div class="page-columns">
+        <div class="col" id="col-left">
+          <div class="col-heading col-heading-left">
+            <div class="col-heading-title">ヒアリング</div>
+            <div class="col-heading-desc">
+              やりたい方向性の確認やすり合わせ用になります
+            </div>
+          </div>
+          <div id="left-editor"></div>
+        </div>
+        <div class="col" id="col-right">
+          <div class="col-heading col-heading-right">
+            <div class="col-heading-title">相手側PCの希望</div>
+            <div class="col-heading-desc">
+              今回希望する相手側のPCイメージや要望を記入してください
+            </div>
+          </div>
+          <div id="right-editor"></div>
+        </div>
+      </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+      import {
+        getFirestore,
+        doc,
+        getDoc,
+        addDoc,
+        collection,
+        serverTimestamp,
+      } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+      const app = initializeApp({
+        apiKey: "AIzaSyADW4T9k6itj9a1hhCmi3ybkyTc9dbTDv0",
+        authDomain: "trpg-36eac.firebaseapp.com",
+        projectId: "trpg-36eac",
+        storageBucket: "trpg-36eac.firebasestorage.app",
+        messagingSenderId: "696095523246",
+        appId: "1:696095523246:web:c9b543d8521b858d3a483f",
+      });
+      const db = getFirestore(app);
+
+      // ── Helpers ──────────────────────────────────────────────────────────
+      const esc = (s) =>
+        String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+
+      // ── Toast / Status ────────────────────────────────────────────────────
+      let toastTimer;
+      function showToast(msg, isErr = false) {
+        const el = document.getElementById("toast");
+        el.textContent = msg;
+        el.className = "toast show" + (isErr ? " err" : "");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => {
+          el.className = "toast";
+        }, 3000);
+      }
+      function setStatus(msg, cls = "") {
+        const el = document.getElementById("statusEl");
+        if (!el) return;
+        el.textContent = msg;
+        el.className = cls;
+      }
+
+      // ── Option value arrays (mirrors index.html constants) ────────────────
+      // Format: [value, displayLabel] — value must match the DOM value attribute
+      const OPT_PAIR_GENDER = [
+        ["hetero", "異性同士"],
+        ["male", "男同士"],
+        ["female", "女同士"],
+      ];
+      const OPT_REL_TAGS = [
+        // 日常・関係性
+        ["友人", "友人"],
+        ["親友", "親友"],
+        ["幼馴染", "幼馴染"],
+        ["年の差", "年の差"],
+        ["仕事仲間", "仕事仲間"],
+        ["上司/部下", "上司/部下"],
+        ["相方/バディ", "相方/バディ"],
+        ["元・○○", "元・○○"],
+        ["悪友", "悪友"],
+        ["同居人", "同居人"],
+        ["追っかけ・ファン", "追っかけ・ファン"],
+        ["凸凹", "凸凹"],
+        // 家族・主従・契約
+        ["きょうだい（血縁）", "きょうだい（血縁）"],
+        ["きょうだい（疑似）", "きょうだい（疑似）"],
+        ["親子（血縁）", "親子（血縁）"],
+        ["親子（疑似）", "親子（疑似）"],
+        ["師弟", "師弟"],
+        ["主従", "主従"],
+        ["契約関係", "契約関係"],
+        ["理解者", "理解者"],
+        ["利害の一致", "利害の一致"],
+        // 恋愛・親密
+        ["片思い", "片思い"],
+        ["両片思い", "両片思い"],
+        ["恋人", "恋人"],
+        ["夫婦", "夫婦"],
+        ["初恋", "初恋"],
+        ["お試し交際", "お試し交際"],
+        ["貞操逆転", "貞操逆転"],
+        // 対立・緊張
+        ["ライバル", "ライバル"],
+        ["犬猿", "犬猿"],
+        ["宿敵", "宿敵"],
+        ["仇", "仇"],
+        // 歪んだ関係・依存
+        ["セフレ", "セフレ"],
+        ["執着", "執着"],
+        ["愛憎", "愛憎"],
+        ["崇拝", "崇拝"],
+        ["飼育", "飼育"],
+        ["加害被害関係", "加害被害関係"],
+        // 特殊・設定系
+        ["人外と人間", "人外と人間"],
+        ["共犯者", "共犯者"],
+        ["共依存", "共依存"],
+        ["身代わり", "身代わり"],
+        ["救済", "救済"],
+        ["天才/秀才", "天才/秀才"],
+        ["運命共同体", "運命共同体"],
+      ];
+      const OPT_PROGRESSION_TIME = [
+        ["oneshot", "1シナリオ内で最終ラインまで"],
+        ["gradual", "継続を通じて段階を経たい"],
+      ];
+      const OPT_DES_POSITION = [
+        ["top", "攻め希望"],
+        ["bottom", "受け希望"],
+        ["either", "どちらでも"],
+        ["discuss", "要相談"],
+      ];
+      const OPT_CONTACT_RANGE = [
+        ["なし", "なし"],
+        ["包容", "包容"],
+        ["キス", "キス"],
+        ["ソフト（R15）", "ソフト（R15）"],
+        ["ハード（R18）", "ハード（R18）"],
+        ["特殊性癖", "特殊性癖"],
+        ["猟奇的表現（R18G）", "猟奇的表現（R18G）"],
+      ];
+      const OPT_RP_POLICY = [
+        ["rp", "RPをする"],
+        ["narrate", "描写を流すだけ"],
+        ["skip", "描写も要らない（事後）"],
+      ];
+      const OPT_R18_PREF = [
+        ["love", "好き"],
+        ["ok", "普通"],
+        ["ng", "NG"],
+        ["conditional", "条件付き可能"],
+      ];
+      const OPT_R18_POS = [
+        ["offender", "自PC加害 / 攻め"],
+        ["victim", "自PC被害 / 受け"],
+        ["either", "どちらでも"],
+        ["third_party", "第三者のみ"],
+      ];
+      const OPT_BODY_PARTS = [
+        ["メイク", "メイク"],
+        ["まつ毛", "まつ毛"],
+        ["唇", "唇"],
+        ["ほくろ", "ほくろ"],
+        ["胸", "胸"],
+        ["筋肉", "筋肉"],
+        ["腰", "腰"],
+        ["お尻", "お尻"],
+        ["太もも", "太もも"],
+        ["足の長さ", "足の長さ"],
+        ["傷跡・火傷", "傷跡・火傷"],
+      ];
+      const OPT_COLORS = [
+        ["無", "無"],
+        ["赤", "赤"],
+        ["オレンジ", "オレンジ"],
+        ["黄", "黄"],
+        ["緑", "緑"],
+        ["青", "青"],
+        ["紫", "紫"],
+        ["ピンク", "ピンク"],
+      ];
+      const OPT_SENSITIVE = [
+        // 肉体・バイオレンス
+        ["暴力行為", "暴力行為"],
+        ["リョナ", "リョナ"],
+        ["四肢欠損", "四肢欠損"],
+        ["カニバリズム", "カニバリズム"],
+        ["ゴア表現", "ゴア表現"],
+        ["薬物", "薬物"],
+        ["妊娠・出産", "妊娠・出産"],
+        ["女装・男装", "女装・男装"],
+        ["女体化・男体化", "女体化・男体化"],
+        ["スカトロ", "スカトロ"],
+        // 精神・尊厳破壊
+        ["洗脳", "洗脳"],
+        ["廃人化", "廃人化"],
+        ["精神的屈服", "精神的屈服"],
+        ["記憶喪失", "記憶喪失"],
+        ["自己犠牲", "自己犠牲"],
+        ["いじめ・ハラスメント", "いじめ・ハラスメント"],
+        // 関係性・愛執
+        ["依存", "依存"],
+        ["共依存", "共依存"],
+        ["執着", "執着"],
+        ["監禁", "監禁"],
+        ["無理やり", "無理やり"],
+        ["ストーカー", "ストーカー"],
+        ["裏切り", "裏切り"],
+        ["見捨て", "見捨て"],
+        ["見捨てられ", "見捨てられ"],
+        ["仲違い", "仲違い"],
+        ["NTR", "NTR"],
+        ["売春", "売春"],
+        ["人身売買", "人身売買"],
+        ["モブ介入", "モブ介入"],
+        // 運命・倫理・結末
+        ["心中", "心中"],
+        ["死別", "死別"],
+        ["メリバ", "メリバ"],
+        ["近親相姦", "近親相姦"],
+        ["未成年（教師生徒など）", "未成年（教師生徒など）"],
+        ["犯罪行為", "犯罪行為"],
+        ["人外化・寄生", "人外化・寄生"],
+        ["クローン・偽物", "クローン・偽物"],
+      ];
+
+      // ── Schema ────────────────────────────────────────────────────────────
+      // side: "left" | "right" — maps to the column where this section lives
+      // fields[].type: human-readable input type shown as a badge
+      // fields[].options: optional [[value, label], ...] for per-option ON/OFF
+      const EDITOR_SCHEMA = [
+        {
+          id: "sec-charpreview",
+          title: "✨ キャラクター予定（ラフ案）",
+          side: "left",
+          fields: [
+            {
+              key: "ownerCharPreview",
+              label: "自分のキャラ予定",
+              type: "テキスト",
+            },
+            {
+              key: "partnerCharPreview",
+              label: "相手のキャラへの希望イメージ",
+              type: "テキスト",
+            },
+          ],
+        },
+        {
+          id: "sec-relreq",
+          title: "💭 関係",
+          side: "left",
+          fields: [
+            {
+              key: "pairGender",
+              label: "今回やりたいペア種別（複数可）",
+              type: "複数選択",
+              options: OPT_PAIR_GENDER,
+            },
+            {
+              key: "relationshipTags",
+              label: "今回やりたい関係タグ（複数可）",
+              type: "複数選択",
+              options: OPT_REL_TAGS,
+            },
+            {
+              key: "desiredRelationship",
+              label: "希望する関係の形",
+              type: "テキスト",
+            },
+            {
+              key: "initialAffection",
+              label: "初期好感度",
+              type: "スライダー",
+            },
+            {
+              key: "finalAffection",
+              label: "最終好感度（想定）",
+              type: "スライダー",
+            },
+            {
+              key: "emotionTypes",
+              label: "感情タイプ（複数可）",
+              type: "動的",
+            },
+            {
+              key: "progressionTime",
+              label: "関係値の進行時間について",
+              type: "複数選択",
+              options: OPT_PROGRESSION_TIME,
+            },
+            {
+              key: "desiredSituation",
+              label: "希望するシチュエーション",
+              type: "テキスト",
+            },
+          ],
+        },
+        {
+          id: "sec-pl3l",
+          title: "💕 性的傾向（接触許容範囲）",
+          side: "left",
+          fields: [
+            {
+              key: "desiredPosition",
+              label: "希望するポジション",
+              type: "選択",
+              options: OPT_DES_POSITION,
+            },
+            {
+              key: "contactRange",
+              label: "物理的接触の許容範囲（複数可）",
+              type: "複数選択",
+              options: OPT_CONTACT_RANGE,
+            },
+            {
+              key: "rpPolicy",
+              label: "描写方針（1つ選択）",
+              type: "選択",
+              options: OPT_RP_POLICY,
+            },
+            { key: "threelComment", label: "補足コメント", type: "テキスト" },
+          ],
+        },
+        {
+          id: "sec-plsensitive",
+          title: "🚫 地雷・センシティブ",
+          side: "left",
+          fields: [
+            {
+              key: "r18Preference",
+              label: "R18 表現の可否",
+              type: "選択",
+              options: OPT_R18_PREF,
+            },
+            {
+              key: "r18Position",
+              label: "R18 可能なポジション",
+              type: "選択",
+              options: OPT_R18_POS,
+            },
+            {
+              key: "r18gPreference",
+              label: "R18G 表現の可否",
+              type: "選択",
+              options: OPT_R18_PREF,
+            },
+            {
+              key: "r18gPosition",
+              label: "R18G 可能なポジション",
+              type: "選択",
+              options: OPT_R18_POS,
+            },
+            {
+              key: "sensitiveTags",
+              label: "センシティブタグ",
+              type: "トグル",
+              options: OPT_SENSITIVE,
+            },
+            { key: "sensitiveNote", label: "補足コメント", type: "テキスト" },
+          ],
+        },
+        {
+          id: "sec-appearance",
+          title: "👤 外見",
+          side: "right",
+          fields: [
+            { key: "ageRange", label: "年齢帯", type: "スライダー" },
+            { key: "heightRange", label: "身長帯", type: "スライダー" },
+            { key: "bodyType", label: "体型", type: "スライダー" },
+            {
+              key: "bodyParts",
+              label:
+                "盛って欲しい、減らして欲しいパーツ（♡盛って欲しい / ✕減らして欲しい）（複数可）",
+              type: "トグル",
+              options: OPT_BODY_PARTS,
+            },
+            { key: "eyeShape", label: "目の形", type: "スライダー" },
+            { key: "eyeSize", label: "目の大きさ", type: "スライダー" },
+            {
+              key: "eyeColorList",
+              label: "目の色（複数可）",
+              type: "カラー",
+              options: OPT_COLORS,
+            },
+            { key: "eyeBrightness", label: "目の明度", type: "スライダー" },
+            { key: "eyeSaturation", label: "目の彩度", type: "スライダー" },
+            { key: "eyebrowAngle", label: "眉のカーブ", type: "スライダー" },
+            { key: "eyebrowThickness", label: "眉の太さ", type: "スライダー" },
+            { key: "eyebrowLength", label: "眉の長さ", type: "スライダー" },
+            {
+              key: "eyebrowEyeDistance",
+              label: "目との距離",
+              type: "スライダー",
+            },
+            { key: "faceImpression1", label: "顔の系統", type: "スライダー" },
+            { key: "faceImpression2", label: "雰囲気", type: "スライダー" },
+            { key: "hairWave", label: "髪質", type: "スライダー" },
+            { key: "hairLength", label: "長さ", type: "スライダー" },
+            {
+              key: "hairColorList",
+              label: "髪色（複数可）",
+              type: "カラー",
+              options: OPT_COLORS,
+            },
+            { key: "hairBrightness", label: "髪の明度", type: "スライダー" },
+            { key: "hairSaturation", label: "髪の彩度", type: "スライダー" },
+            { key: "hairStyle", label: "髪型", type: "テキスト" },
+            { key: "vibe", label: "全体的な雰囲気", type: "テキスト" },
+            { key: "appearanceNG", label: "外見NG要素", type: "テキスト" },
+          ],
+        },
+        {
+          id: "sec-personality",
+          title: "🧠 性格",
+          side: "right",
+          fields: [
+            { key: "lightDark", label: "明るさ", type: "スライダー" },
+            { key: "pastWeight", label: "過去の重さ", type: "スライダー" },
+            { key: "sadismMasochism", label: "S/M気質", type: "スライダー" },
+            { key: "tsunDere", label: "ツン／デレ", type: "スライダー" },
+            {
+              key: "mentalStrength",
+              label: "メンタル強度",
+              type: "スライダー",
+            },
+            { key: "emotionExpression", label: "感情表現", type: "スライダー" },
+            { key: "dependencyLevel", label: "依存度", type: "スライダー" },
+            { key: "initiative", label: "主導権", type: "スライダー" },
+            {
+              key: "personalSpace",
+              label: "パーソナルスペース",
+              type: "スライダー",
+            },
+            { key: "trustStyle", label: "信頼の形", type: "スライダー" },
+            { key: "ethics", label: "倫理観", type: "スライダー" },
+            { key: "extroversion", label: "外向性", type: "スライダー" },
+            { key: "intellectLevel", label: "知的レベル", type: "スライダー" },
+            { key: "secretiveness", label: "隠し事", type: "スライダー" },
+            { key: "innerVoice", label: "心の声", type: "スライダー" },
+            { key: "composure", label: "余裕", type: "スライダー" },
+            { key: "pride", label: "プライド", type: "スライダー" },
+            { key: "emotionWeight", label: "感情の重さ", type: "スライダー" },
+            { key: "possessiveness", label: "独占欲", type: "スライダー" },
+            { key: "sincerity", label: "素直さ", type: "スライダー" },
+            { key: "likes", label: "入れて欲しい性格要素", type: "テキスト" },
+            {
+              key: "dislikes",
+              label: "入れて欲しくない性格要素",
+              type: "テキスト",
+            },
+          ],
+        },
+      ];
+
+      // ── Build editor UI ───────────────────────────────────────────────────
+      // Annotation inputs for a section (before/after the entire section body)
+      // hidden by default — toggled open by the ＋ button in .e-sec-hd
+      function buildSectionAnnotsHtml() {
+        return `<div class="e-sec-annots hidden">
+          <span class="e-annots-head">注釈（セクション）</span>
+          <div class="e-annot-row">
+            <span class="e-annot-label">先頭</span>
+            <textarea class="e-annot-input" data-annot="before" rows="1" placeholder="セクション先頭に表示するテキスト（空白で非表示）"></textarea>
+          </div>
+          <div class="e-annot-row">
+            <span class="e-annot-label">末尾</span>
+            <textarea class="e-annot-input" data-annot="after" rows="1" placeholder="セクション末尾に表示するテキスト（空白で非表示）"></textarea>
+          </div>
+        </div>`;
+      }
+      // Annotation inputs for a single field (before/after that field)
+      // hidden by default — toggled open by the ＋ button in .e-field-main
+      function buildFieldAnnotsHtml() {
+        return `<div class="e-field-annots hidden">
+          <span class="e-annots-head">注釈</span>
+          <div class="e-annot-row">
+            <span class="e-annot-label">上に表示</span>
+            <textarea class="e-annot-input" data-annot="before" rows="1" placeholder="この項目の直前に表示するテキスト（空白で非表示）"></textarea>
+          </div>
+          <div class="e-annot-row">
+            <span class="e-annot-label">下に表示</span>
+            <textarea class="e-annot-input" data-annot="after" rows="1" placeholder="この項目の直後に表示するテキスト（空白で非表示）"></textarea>
+          </div>
+        </div>`;
+      }
+
+      function buildOptionsHtml(field) {
+        if (!field.options || field.options.length === 0) return "";
+        const chips = field.options
+          .map(
+            ([v, l]) => `
+            <span class="e-option" data-opt-key="${esc(v)}">
+              <label class="tog-sw-sm" title="${esc(v)}">
+                <input type="checkbox" class="opt-vis-tog" checked>
+                <span class="tog-sw-sm-track"></span>
+              </label>
+              <span class="e-option-label">${esc(l)}</span>
+            </span>`,
+          )
+          .join("");
+        return `<div class="e-options">
+          <span class="e-options-head">選択肢 ON/OFF</span>
+          ${chips}
+        </div>`;
+      }
+
+      function buildEditorSection(sec) {
+        const fieldRows = sec.fields
+          .map(
+            (field) => `
+            <div class="e-field" data-field-key="${field.key}">
+              <div class="e-field-main">
+                <label class="tog-sw" title="表示切替: ${field.key}">
+                  <input type="checkbox" class="field-vis-tog" checked>
+                  <span class="tog-sw-track"></span>
+                </label>
+                <input
+                  type="text"
+                  class="e-field-label-input"
+                  value="${esc(field.label)}"
+                  placeholder="${esc(field.label)}"
+                  title="クリックして編集"
+                >
+                <span class="e-field-type">${field.type}</span>
+                <button type="button" class="e-toggle-field-annots" title="注釈を編集">＋</button>
+              </div>
+              ${buildOptionsHtml(field)}
+              ${buildFieldAnnotsHtml()}
+            </div>`,
+          )
+          .join("");
+
+        return `
+          <div class="e-sec" data-section-id="${sec.id}">
+            <div class="e-sec-hd">
+              <label class="tog-sw" title="セクション表示切替: ${sec.id}">
+                <input type="checkbox" class="sec-vis-tog" checked>
+                <span class="tog-sw-track"></span>
+              </label>
+              <input
+                type="text"
+                class="e-sec-title-input"
+                value="${esc(sec.title)}"
+                placeholder="${esc(sec.title)}"
+                title="クリックして編集"
+              >
+              <button type="button" class="e-toggle-annots" title="注釈を編集">＋</button>
+            </div>
+            ${buildSectionAnnotsHtml()}
+            <div class="e-fields">${fieldRows}</div>
+          </div>`;
+      }
+
+      function buildEditorUI() {
+        const leftEl = document.getElementById("left-editor");
+        const rightEl = document.getElementById("right-editor");
+
+        EDITOR_SCHEMA.forEach((sec) => {
+          const html = buildEditorSection(sec);
+          (sec.side === "left" ? leftEl : rightEl).insertAdjacentHTML(
+            "beforeend",
+            html,
+          );
+        });
+
+        // Section toggle → dim card
+        document.querySelectorAll(".sec-vis-tog").forEach((tog) => {
+          tog.addEventListener("change", () => {
+            tog.closest(".e-sec").classList.toggle("e-off", !tog.checked);
+          });
+        });
+
+        // Field toggle → dim row
+        document.querySelectorAll(".field-vis-tog").forEach((tog) => {
+          tog.addEventListener("change", () => {
+            tog.closest(".e-field").classList.toggle("e-off", !tog.checked);
+          });
+        });
+
+        // Option toggle → dim chip
+        document.querySelectorAll(".opt-vis-tog").forEach((tog) => {
+          tog.addEventListener("change", () => {
+            tog.closest(".e-option").classList.toggle("e-off", !tog.checked);
+          });
+        });
+
+        // Section annotation toggle (＋ / －)
+        document.querySelectorAll(".e-toggle-annots").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const annots = btn.closest(".e-sec").querySelector(".e-sec-annots");
+            if (!annots) return;
+            const isNowHidden = annots.classList.toggle("hidden");
+            btn.textContent = isNowHidden ? "＋" : "－";
+            btn.classList.toggle("open", !isNowHidden);
+          });
+        });
+
+        // Field annotation toggle (＋ / －)
+        document.querySelectorAll(".e-toggle-field-annots").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const annots = btn
+              .closest(".e-field")
+              .querySelector(".e-field-annots");
+            if (!annots) return;
+            const isNowHidden = annots.classList.toggle("hidden");
+            btn.textContent = isNowHidden ? "＋" : "－";
+            btn.classList.toggle("open", !isNowHidden);
+          });
+        });
+      }
+
+      // ── Collect template data ─────────────────────────────────────────────
+      function collectTemplate() {
+        const sections = {};
+        const labels = {};
+        const visibility = {};
+        const options = {};
+        const annotations = {};
+
+        EDITOR_SCHEMA.forEach((sec) => {
+          const secEl = document.querySelector(`[data-section-id="${sec.id}"]`);
+          if (!secEl) return;
+
+          const secTog = secEl.querySelector(".sec-vis-tog");
+          const secTitleInput = secEl.querySelector(".e-sec-title-input");
+
+          sections[sec.id] = {
+            visible: secTog ? secTog.checked : true,
+            title:
+              secTitleInput && secTitleInput.value.trim()
+                ? secTitleInput.value.trim()
+                : sec.title,
+          };
+
+          // Section-level annotations
+          const secAnnotArea = secEl.querySelector(".e-sec-annots");
+          if (secAnnotArea) {
+            const before =
+              secAnnotArea
+                .querySelector('[data-annot="before"]')
+                ?.value.trim() || "";
+            const after =
+              secAnnotArea
+                .querySelector('[data-annot="after"]')
+                ?.value.trim() || "";
+            if (before || after) annotations[sec.id] = { before, after };
+          }
+
+          sec.fields.forEach((field) => {
+            const fieldEl = secEl.querySelector(
+              `[data-field-key="${field.key}"]`,
+            );
+            if (!fieldEl) return;
+
+            const fieldTog = fieldEl.querySelector(".field-vis-tog");
+            const fieldLabelInput = fieldEl.querySelector(
+              ".e-field-label-input",
+            );
+
+            visibility[field.key] = fieldTog ? fieldTog.checked : true;
+            labels[field.key] =
+              fieldLabelInput && fieldLabelInput.value.trim()
+                ? fieldLabelInput.value.trim()
+                : field.label;
+
+            // Collect option visibility states
+            if (field.options) {
+              const optMap = {};
+              fieldEl.querySelectorAll(".e-option").forEach((optEl) => {
+                const v = optEl.dataset.optKey;
+                const tog = optEl.querySelector(".opt-vis-tog");
+                optMap[v] = tog ? tog.checked : true;
+              });
+              options[field.key] = optMap;
+            }
+
+            // Field-level annotations
+            const fieldAnnotArea = fieldEl.querySelector(".e-field-annots");
+            if (fieldAnnotArea) {
+              const before =
+                fieldAnnotArea
+                  .querySelector('[data-annot="before"]')
+                  ?.value.trim() || "";
+              const after =
+                fieldAnnotArea
+                  .querySelector('[data-annot="after"]')
+                  ?.value.trim() || "";
+              if (before || after) annotations[field.key] = { before, after };
+            }
+          });
+        });
+
+        return { sections, labels, visibility, options, annotations };
+      }
+
+      // ── Load existing template into editor ────────────────────────────────
+      function loadTemplateIntoEditor(tmpl) {
+        if (!tmpl) return;
+        const {
+          sections = {},
+          labels = {},
+          visibility = {},
+          options = {},
+          annotations = {},
+        } = tmpl;
+
+        EDITOR_SCHEMA.forEach((sec) => {
+          const secEl = document.querySelector(`[data-section-id="${sec.id}"]`);
+          if (!secEl) return;
+
+          const secCfg = sections[sec.id];
+          if (secCfg) {
+            const secTog = secEl.querySelector(".sec-vis-tog");
+            if (secTog && secCfg.visible === false) {
+              secTog.checked = false;
+              secEl.classList.add("e-off");
+            }
+            const secTitleInput = secEl.querySelector(".e-sec-title-input");
+            if (secTitleInput && secCfg.title) {
+              secTitleInput.value = secCfg.title;
+            }
+          }
+
+          // Section-level annotations — restore values and open area if non-empty
+          const secAnnot = annotations[sec.id];
+          if (secAnnot && (secAnnot.before || secAnnot.after)) {
+            const area = secEl.querySelector(".e-sec-annots");
+            if (area) {
+              const beforeEl = area.querySelector('[data-annot="before"]');
+              const afterEl = area.querySelector('[data-annot="after"]');
+              if (beforeEl && secAnnot.before) beforeEl.value = secAnnot.before;
+              if (afterEl && secAnnot.after) afterEl.value = secAnnot.after;
+              // Auto-open the annotation area
+              area.classList.remove("hidden");
+              const toggleBtn = secEl.querySelector(".e-toggle-annots");
+              if (toggleBtn) {
+                toggleBtn.textContent = "－";
+                toggleBtn.classList.add("open");
+              }
+            }
+          }
+
+          sec.fields.forEach((field) => {
+            const fieldEl = secEl.querySelector(
+              `[data-field-key="${field.key}"]`,
+            );
+            if (!fieldEl) return;
+
+            // Field visibility
+            const fieldTog = fieldEl.querySelector(".field-vis-tog");
+            if (fieldTog && visibility[field.key] === false) {
+              fieldTog.checked = false;
+              fieldEl.classList.add("e-off");
+            }
+
+            // Field label
+            const fieldLabelInput = fieldEl.querySelector(
+              ".e-field-label-input",
+            );
+            if (fieldLabelInput && labels[field.key]) {
+              fieldLabelInput.value = labels[field.key];
+            }
+
+            // Option visibility
+            if (field.options && options[field.key]) {
+              const optMap = options[field.key];
+              fieldEl.querySelectorAll(".e-option").forEach((optEl) => {
+                const v = optEl.dataset.optKey;
+                if (optMap[v] === false) {
+                  const tog = optEl.querySelector(".opt-vis-tog");
+                  if (tog) {
+                    tog.checked = false;
+                    optEl.classList.add("e-off");
+                  }
+                }
+              });
+            }
+
+            // Field-level annotations — restore values and open area if non-empty
+            const fieldAnnot = annotations[field.key];
+            if (fieldAnnot && (fieldAnnot.before || fieldAnnot.after)) {
+              const area = fieldEl.querySelector(".e-field-annots");
+              if (area) {
+                const beforeEl = area.querySelector('[data-annot="before"]');
+                const afterEl = area.querySelector('[data-annot="after"]');
+                if (beforeEl && fieldAnnot.before)
+                  beforeEl.value = fieldAnnot.before;
+                if (afterEl && fieldAnnot.after)
+                  afterEl.value = fieldAnnot.after;
+                // Auto-open the annotation area
+                area.classList.remove("hidden");
+                const toggleBtn = fieldEl.querySelector(
+                  ".e-toggle-field-annots",
+                );
+                if (toggleBtn) {
+                  toggleBtn.textContent = "－";
+                  toggleBtn.classList.add("open");
+                }
+              }
+            }
+          });
+        });
+      }
+
+      // ── Save ──────────────────────────────────────────────────────────────
+      async function saveTemplate() {
+        const btn = document.getElementById("saveBtn");
+        btn.disabled = true;
+        setStatus("接続確認中…", "saving");
+
+        // Firestore connectivity check
+        try {
+          await Promise.race([
+            getDoc(doc(db, "templates", "connectivity_test")),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("接続タイムアウト")), 8000),
+            ),
+          ]);
+        } catch (e) {
+          setStatus("接続エラー: " + e.message, "err");
+          showToast("Firestoreに接続できません: " + e.message, true);
+          btn.disabled = false;
+          return;
+        }
+
+        let template;
+        try {
+          template = collectTemplate();
+        } catch (e) {
+          setStatus("収集エラー: " + e.message, "err");
+          btn.disabled = false;
+          return;
+        }
+
+        setStatus("保存中…", "saving");
+
+        const nameVal =
+          (document.getElementById("templateNameInput")?.value || "").trim() ||
+          "無題テンプレート";
+
+        try {
+          const docRef = await addDoc(collection(db, "templates"), {
+            name: nameVal,
+            template,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+          setStatus("保存完了 ✓ — シートへ移動します…", "saved");
+          setTimeout(() => {
+            window.location.href = `./index.html?templateId=${docRef.id}`;
+          }, 800);
+        } catch (e) {
+          setStatus("保存エラー: " + e.message, "err");
+          showToast("保存に失敗しました: " + e.message, true);
+          btn.disabled = false;
+        }
+      }
+
+      // ── Init ─────────────────────────────────────────────────────────────
+      async function init() {
+        buildEditorUI();
+        setStatus(
+          "トグルで表示切替、テキストをクリックしてラベルを編集できます",
+        );
+        document
+          .getElementById("saveBtn")
+          .addEventListener("click", saveTemplate);
+
+        // Load existing template if ?templateId= is present
+        const params = new URLSearchParams(location.search);
+        const templateId = params.get("templateId");
+        if (templateId) {
+          // Update "← シートに戻る" link to keep templateId context
+          const backBtn = document.getElementById("backBtn");
+          if (backBtn) backBtn.href = `./index.html?templateId=${templateId}`;
+
+          setStatus("テンプレートを読み込み中…", "saving");
+          try {
+            const snap = await getDoc(doc(db, "templates", templateId));
+            if (snap.exists()) {
+              const snapData = snap.data();
+              loadTemplateIntoEditor(snapData.template);
+              const nameInput = document.getElementById("templateNameInput");
+              if (nameInput && snapData.name) nameInput.value = snapData.name;
+              setStatus(
+                "既存テンプレートを読み込みました — 編集して保存してください",
+              );
+            } else {
+              setStatus("テンプレートが見つかりません — 新規作成します");
+            }
+          } catch (e) {
+            setStatus("読み込みエラー: " + e.message, "err");
+          }
+        }
+      }
+
+      init();
+    </script>
+  </body>
+</html>

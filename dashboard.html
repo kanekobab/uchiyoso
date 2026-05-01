@@ -1,0 +1,342 @@
+﻿<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1.0,maximum-scale=1.0"
+    />
+    <title>管理ダッシュボード</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body class="page-dashboard">
+    <header class="hd">
+      <div class="hd-title">
+        タイマン・2PL時のアンケート＋リクエスト・シート：管理ダッシュボード
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- テンプレート -->
+      <div class="section" id="section-templates">
+        <div class="section-hd">
+          <h2 class="section-title">テンプレート</h2>
+          <a class="section-new" href="./editor.html">＋ 新規作成</a>
+        </div>
+        <div id="tmpl-state" class="state-wrap">読み込み中…</div>
+        <div id="tmpl-grid" class="card-grid" style="display: none"></div>
+      </div>
+
+      <!-- 回答データ -->
+      <div class="section" id="section-pairs">
+        <div class="section-hd">
+          <h2 class="section-title">回答データ</h2>
+          <a class="section-new" href="./index.html">＋ 新規作成</a>
+        </div>
+        <div id="pairs-state" class="state-wrap">読み込み中…</div>
+        <div id="pairs-grid" class="card-grid" style="display: none"></div>
+      </div>
+    </main>
+
+    <div class="toast" id="toast"></div>
+
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+      import {
+        getFirestore,
+        collection,
+        getDocs,
+        deleteDoc,
+        doc,
+      } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+      const app = initializeApp({
+        apiKey: "AIzaSyADW4T9k6itj9a1hhCmi3ybkyTc9dbTDv0",
+        authDomain: "trpg-36eac.firebaseapp.com",
+        projectId: "trpg-36eac",
+        storageBucket: "trpg-36eac.firebasestorage.app",
+        messagingSenderId: "696095523246",
+        appId: "1:696095523246:web:c9b543d8521b858d3a483f",
+      });
+      const db = getFirestore(app);
+
+      // ── Helpers ─────────────────────────────────────────────────────────
+      const esc = (s) =>
+        String(s ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+
+      // Firestore Timestamp → "YYYY/MM/DD HH:mm" or "—"
+      function fmtDate(ts) {
+        if (!ts) return "—";
+        const d = ts.toDate ? ts.toDate() : new Date(ts);
+        return d.toLocaleString("ja-JP", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      // Build an absolute URL relative to this page
+      function makeUrl(relPath) {
+        return new URL(relPath, location.href).toString();
+      }
+
+      // Sort docs by updatedAt (fallback createdAt) descending — client-side
+      function sortByDate(docs) {
+        return docs.slice().sort((a, b) => {
+          const ta = (
+            a.updatedAt?.toDate?.() ||
+            a.createdAt?.toDate?.() ||
+            new Date(0)
+          ).getTime();
+          const tb = (
+            b.updatedAt?.toDate?.() ||
+            b.createdAt?.toDate?.() ||
+            new Date(0)
+          ).getTime();
+          return tb - ta;
+        });
+      }
+
+      // Extract a display title for a pairs document (fallback to data summary)
+      function getPairTitle(d) {
+        if (d.title?.trim()) return d.title.trim();
+        const data = d.data || {};
+        const tags = data.relationship?.relationshipTags;
+        if (tags?.length)
+          return tags.slice(0, 3).join(" ・ ") + (tags.length > 3 ? "…" : "");
+        const cp = data.charPreview?.ownerCharPreview?.trim();
+        if (cp) return cp.length > 40 ? cp.slice(0, 40) + "…" : cp;
+        const dr = data.relationship?.desiredRelationship?.trim();
+        if (dr) return dr.length > 40 ? dr.slice(0, 40) + "…" : dr;
+        return "無題データ";
+      }
+
+      // ── Toast ────────────────────────────────────────────────────────────
+      let toastTimer;
+      function showToast(msg, isErr = false) {
+        const el = document.getElementById("toast");
+        el.textContent = msg;
+        el.className = "toast show" + (isErr ? " error" : "");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => el.classList.remove("show"), 2500);
+      }
+
+      // ── Template cards ───────────────────────────────────────────────────
+      function buildTmplCard(id, d) {
+        const name = d.name?.trim() || "無題テンプレート";
+        const date = fmtDate(d.updatedAt || d.createdAt);
+        const editUrl = makeUrl(`./editor.html?templateId=${id}`);
+        const useUrl = makeUrl(`./index.html?templateId=${id}`);
+        const copyUrl = makeUrl(`./index.html?templateId=${id}`);
+
+        return `
+          <div class="card" data-id="${esc(id)}" data-type="templates">
+            <div class="card-body">
+              <div class="card-name">${esc(name)}</div>
+              <div class="card-date">更新: ${esc(date)}</div>
+            </div>
+            <div class="card-footer">
+              <a class="cb cb-primary" href="${esc(editUrl)}">✏️ 編集</a>
+              <a class="cb" href="${esc(useUrl)}">▶ 使用</a>
+              <button class="cb" data-copy="${esc(copyUrl)}">🔗 URLコピー</button>
+              <button class="cb cb-danger" data-delete>🗑 削除</button>
+            </div>
+          </div>`;
+      }
+
+      // ── Pair cards ───────────────────────────────────────────────────────
+      function buildPairCard(id, d) {
+        const title = getPairTitle(d);
+        const date = fmtDate(d.updatedAt || d.createdAt);
+        const viewUrl = makeUrl(`./view.html?id=${id}`);
+        const editUrl = makeUrl(`./index.html?id=${id}`);
+        const copyUrl = makeUrl(`./view.html?id=${id}`);
+
+        return `
+          <div class="card" data-id="${esc(id)}" data-type="pairs">
+            <div class="card-body">
+              <div class="card-name">${esc(title)}</div>
+              <div class="card-date">更新: ${esc(date)}</div>
+            </div>
+            <div class="card-footer">
+              <a class="cb cb-primary" href="${esc(viewUrl)}">👁 閲覧</a>
+              <a class="cb" href="${esc(editUrl)}">✏️ 編集</a>
+              <button class="cb" data-copy="${esc(copyUrl)}">🔗 URLコピー</button>
+              <button class="cb cb-danger" data-delete>🗑 削除</button>
+            </div>
+          </div>`;
+      }
+
+      // ── Empty state ──────────────────────────────────────────────────────
+      function emptyHtml(message, sub, href) {
+        return `
+          <div class="state-wrap">
+            <div>${esc(message)}</div>
+            <div class="empty-sub">${esc(sub)}</div>
+            <a class="section-new" href="${esc(href)}">＋ 作成する</a>
+          </div>`;
+      }
+
+      // ── Load templates ───────────────────────────────────────────────────
+      async function loadTemplates() {
+        const stateEl = document.getElementById("tmpl-state");
+        const gridEl = document.getElementById("tmpl-grid");
+        try {
+          const snap = await getDocs(collection(db, "templates"));
+          const docs = sortByDate(
+            snap.docs
+              .filter((d) => d.id !== "connectivity_test")
+              .map((d) => ({ id: d.id, ...d.data() })),
+          );
+
+          stateEl.style.display = "none";
+
+          if (docs.length === 0) {
+            gridEl.style.display = "none";
+            stateEl.style.display = "";
+            stateEl.innerHTML = emptyHtml(
+              "テンプレートがありません",
+              "エディターでシートをカスタマイズして保存してください",
+              "./editor.html",
+            );
+            return;
+          }
+
+          gridEl.innerHTML = docs.map((d) => buildTmplCard(d.id, d)).join("");
+          gridEl.style.display = "grid";
+        } catch (e) {
+          console.error("[dashboard] templates load failed:", e);
+          stateEl.className = "state-wrap error";
+          stateEl.textContent = "読み込みに失敗しました: " + e.message;
+        }
+      }
+
+      // ── Load pairs ───────────────────────────────────────────────────────
+      async function loadPairs() {
+        const stateEl = document.getElementById("pairs-state");
+        const gridEl = document.getElementById("pairs-grid");
+        try {
+          const snap = await getDocs(collection(db, "pairs"));
+          const docs = sortByDate(
+            snap.docs
+              .filter(
+                (d) =>
+                  d.id !== "connectivity_test" &&
+                  (d.data().data != null || d.data().title != null),
+              )
+              .map((d) => ({ id: d.id, ...d.data() })),
+          );
+
+          stateEl.style.display = "none";
+
+          if (docs.length === 0) {
+            stateEl.style.display = "";
+            stateEl.innerHTML = emptyHtml(
+              "回答データがありません",
+              "シートを入力して保存するとここに表示されます",
+              "./index.html",
+            );
+            return;
+          }
+
+          gridEl.innerHTML = docs.map((d) => buildPairCard(d.id, d)).join("");
+          gridEl.style.display = "grid";
+        } catch (e) {
+          console.error("[dashboard] pairs load failed:", e);
+          stateEl.className = "state-wrap error";
+          stateEl.textContent = "読み込みに失敗しました: " + e.message;
+        }
+      }
+
+      // ── Delete ───────────────────────────────────────────────────────────
+      async function handleDelete(cardEl) {
+        const id = cardEl.dataset.id;
+        const collectionName = cardEl.dataset.type;
+        if (!id || !collectionName) return;
+
+        if (!confirm("本当に削除しますか？\nこの操作は取り消せません。"))
+          return;
+
+        try {
+          await deleteDoc(doc(db, collectionName, id));
+          cardEl.style.transition = "opacity 0.2s";
+          cardEl.style.opacity = "0";
+          setTimeout(() => {
+            cardEl.remove();
+            // If grid is now empty, show empty state
+            const gridEl = document.getElementById(
+              collectionName === "templates" ? "tmpl-grid" : "pairs-grid",
+            );
+            const stateEl = document.getElementById(
+              collectionName === "templates" ? "tmpl-state" : "pairs-state",
+            );
+            if (gridEl && gridEl.children.length === 0) {
+              gridEl.style.display = "none";
+              stateEl.style.display = "";
+              stateEl.innerHTML = emptyHtml(
+                collectionName === "templates"
+                  ? "テンプレートがありません"
+                  : "回答データがありません",
+                collectionName === "templates"
+                  ? "エディターでシートをカスタマイズして保存してください"
+                  : "シートを入力して保存するとここに表示されます",
+                collectionName === "templates"
+                  ? "./editor.html"
+                  : "./index.html",
+              );
+            }
+          }, 220);
+          showToast("削除しました");
+        } catch (e) {
+          console.error("[dashboard] delete failed:", e);
+          if (e.code === "permission-denied") {
+            showToast(
+              "削除が許可されていません。Firestoreのセキュリティルールを確認してください。",
+              true,
+            );
+          } else {
+            showToast("削除に失敗しました: " + e.message, true);
+          }
+        }
+      }
+
+      // ── Copy URL ─────────────────────────────────────────────────────────
+      async function handleCopy(url) {
+        try {
+          await navigator.clipboard.writeText(url);
+          showToast("URLをコピーしました 🔗");
+        } catch {
+          prompt("このURLをコピーしてください：", url);
+        }
+      }
+
+      // ── Event delegation ─────────────────────────────────────────────────
+      document.querySelector(".main").addEventListener("click", (e) => {
+        // Copy URL button
+        const copyBtn = e.target.closest("[data-copy]");
+        if (copyBtn) {
+          handleCopy(copyBtn.dataset.copy);
+          return;
+        }
+        // Delete button
+        const delBtn = e.target.closest("[data-delete]");
+        if (delBtn) {
+          handleDelete(delBtn.closest(".card"));
+          return;
+        }
+      });
+
+      // ── Init ─────────────────────────────────────────────────────────────
+      async function init() {
+        await Promise.all([loadTemplates(), loadPairs()]);
+      }
+
+      init();
+    </script>
+  </body>
+</html>
