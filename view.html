@@ -54,7 +54,15 @@
         top: "攻め希望",
         bottom: "受け希望",
         either: "どちらでも",
+        either_riba: "どちらでも（リバ）",
+        sub_top: "従属的な攻め",
+        mental_bottom: "精神優位の受け",
         discuss: "要相談",
+      };
+      const RIBA_PREF_MAP = {
+        fixed: "完全固定",
+        cond_riba: "条件付きリバ可",
+        full_riba: "完全リバ可",
       };
       const PROGRESS_MAP = {
         oneshot: "1シナリオ内で最終ラインまで行きたい",
@@ -167,6 +175,13 @@
           title: "💕 性的傾向",
           fields: [
             {
+              key: "ribaPref",
+              label: "リバについて",
+              type: "radio_map",
+              map: RIBA_PREF_MAP,
+            },
+            { key: "ribaCondition", label: "リバ条件", type: "text" },
+            {
               key: "desiredPosition",
               label: "ポジション",
               type: "radio_map",
@@ -238,8 +253,8 @@
           key: "appearance",
           title: "👤 外見",
           fields: [
-            { key: "ageRange", label: "年齢帯", type: "range", unit: "歳" },
-            { key: "heightRange", label: "身長帯", type: "range", unit: "cm" },
+            { key: "ageRange", label: "年齢帯", type: "range", unit: "歳", absMin: 9, absMax: 40 },
+            { key: "heightRange", label: "身長帯", type: "range", unit: "cm", absMin: 120, absMax: 220 },
             {
               key: "bodyType",
               label: "体型（細め ↔ がっちり）",
@@ -436,6 +451,32 @@
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;");
 
+      // Render a read-only dual-range bar (matches index.html visual style)
+      function renderDualBar(value, field) {
+        if (!value || typeof value !== "object") return null;
+        const vMin = value.min ?? 0;
+        const vMax = value.max ?? 10;
+        const absMin = field.absMin ?? 0;
+        const absMax = field.absMax ?? 10;
+        const range = absMax - absMin;
+        if (range === 0) return null;
+        const pMin = ((vMin - absMin) / range) * 100;
+        const pMax = ((vMax - absMin) / range) * 100;
+        const tc = Math.min(absMax - absMin + 1, 11);
+        const ticks = Array.from({ length: tc }, () => "<span></span>").join("");
+        return (
+          `<div class="dual-range-wrap vr-readonly changed">` +
+          `<div class="dual-range-track">` +
+          `<div class="dr-bg"></div>` +
+          `<div class="dr-fill" style="left:${pMin.toFixed(1)}%;width:${(pMax - pMin).toFixed(1)}%"></div>` +
+          `<input type="range" class="dr-input" min="${absMin}" max="${absMax}" value="${vMin}">` +
+          `<input type="range" class="dr-input" min="${absMin}" max="${absMax}" value="${vMax}">` +
+          `</div>` +
+          `<div class="slider-ticks">${ticks}</div>` +
+          `</div>`
+        );
+      }
+
       // ── 値レンダー ────────────────────────────────────────────────────
       function renderValue(field, value) {
         if (value === undefined || value === null) return null;
@@ -465,9 +506,7 @@
             return `<span class="v-text">${esc(field.map[value] || value)}</span>`;
           }
           case "range": {
-            if (!value || typeof value !== "object") return null;
-            const unit = field.unit || "";
-            return `<span class="v-range">${value.min}〜${value.max}${unit}</span>`;
+            return renderDualBar(value, field);
           }
           case "num_of_10": {
             if (value === undefined || value === null) return null;

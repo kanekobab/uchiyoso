@@ -878,6 +878,19 @@ body {
   color: #6366f1;
 }
 
+/* View-only (read-only) range bars — used in view.html */
+.vr-readonly {
+  pointer-events: none;
+}
+.vr-readonly .dr-input::-webkit-slider-thumb {
+  pointer-events: none;
+  cursor: default;
+}
+.vr-readonly .dr-input::-moz-range-thumb {
+  pointer-events: none;
+  cursor: default;
+}
+
 .slider-ticks {
   display: flex;
   justify-content: space-between;
@@ -983,15 +996,6 @@ body {
   color: var(--primary);
   margin-bottom: 8px;
   display: block;
-}
-
-/* Annotation paragraphs injected by applyTemplate() */
-.annotation {
-  font-size: 12px;
-  color: #666;
-  margin: 8px 0;
-  line-height: 1.6;
-  white-space: pre-wrap;
 }
 
 /* Sensitive section notice */

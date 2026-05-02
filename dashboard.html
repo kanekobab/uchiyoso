@@ -131,7 +131,6 @@
         const name = d.name?.trim() || "無題テンプレート";
         const date = fmtDate(d.updatedAt || d.createdAt);
         const editUrl = makeUrl(`./editor.html?templateId=${id}`);
-        const useUrl = makeUrl(`./index.html?templateId=${id}`);
         const copyUrl = makeUrl(`./index.html?templateId=${id}`);
 
         return `
@@ -142,7 +141,6 @@
             </div>
             <div class="card-footer">
               <a class="cb cb-primary" href="${esc(editUrl)}">✏️ 編集</a>
-              <a class="cb" href="${esc(useUrl)}">▶ 使用</a>
               <button class="cb" data-copy="${esc(copyUrl)}">🔗 URLコピー</button>
               <button class="cb cb-danger" data-delete>🗑 削除</button>
             </div>

@@ -20,7 +20,7 @@
             >⚙️ カスタマイズ</a
           >
           <button class="btn btn-save" id="saveBtn">
-            💾 保存して概要を表示
+            💾 保存
           </button>
         </div>
       </div>
@@ -94,8 +94,15 @@
       const POS_OPTS = [
         ["top", "攻め希望"],
         ["bottom", "受け希望"],
-        ["either", "どちらでも"],
+        ["either_riba", "どちらでも（リバ）"],
+        ["sub_top", "従属的な攻め"],
+        ["mental_bottom", "精神優位の受け"],
         ["discuss", "要相談"],
+      ];
+      const RIBA_PREF_OPTS = [
+        ["fixed", "完全固定"],
+        ["cond_riba", "条件付きリバ可"],
+        ["full_riba", "完全リバ可"],
       ];
       const PAIR_GENDER_OPTS = [
         ["hetero", "異性同士"],
@@ -305,6 +312,10 @@
         desiredSituation: () =>
           document.getElementById("owner-request-desiredSituation"),
         // sexual
+        ribaPref: () =>
+          document.querySelector('[name="owner-request-ribaPref"]'),
+        ribaCondition: () =>
+          document.getElementById("owner-request-ribaCondition"),
         desiredPosition: () =>
           document.querySelector('[name="owner-request-desiredPosition"]'),
         contactRange: () =>
@@ -418,6 +429,10 @@
           selector: (v) =>
             `[name="owner-request-progressionTime"][value="${v}"]`,
           wrapper: ".cb-chip",
+        },
+        ribaPref: {
+          selector: (v) => `[name="owner-request-ribaPref"][value="${v}"]`,
+          wrapper: ".radio-chip",
         },
         desiredPosition: {
           selector: (v) =>
@@ -591,8 +606,8 @@
       function fieldGrid(...fields) {
         return `<div class="field-grid">${fields.join("")}</div>`;
       }
-      function condFieldHtml(forName, inputId, placeholder = "条件・理由など") {
-        return `<div class="cond-field" data-cond-for="${forName}" style="display:none"><div class="comment-input"><input type="text" id="${inputId}" placeholder="${placeholder}"></div></div>`;
+      function condFieldHtml(forName, inputId, placeholder = "条件・理由など", triggerVal = "conditional") {
+        return `<div class="cond-field" data-cond-for="${forName}" data-cond-val="${triggerVal}" style="display:none"><div class="comment-input"><input type="text" id="${inputId}" placeholder="${placeholder}"></div></div>`;
       }
       function secHtml(id, title, body, opts = {}) {
         const badge = opts.important
@@ -731,7 +746,17 @@
         html += secHtml(
           "sec-pl3l",
           "💕 性的傾向（接触許容範囲）",
-          `<p class="sub-title">自キャラが希望するポジション</p>` +
+          fieldHtml(
+            "左右の固定・リバについて（1つのみ）",
+            radioHtml(r("ribaPref"), RIBA_PREF_OPTS),
+          ) +
+            condFieldHtml(
+              r("ribaPref"),
+              r("ribaCondition"),
+              "条件を記入してください",
+              "cond_riba",
+            ) +
+            `<p class="sub-title">自キャラが希望するポジション</p>` +
             fieldHtml(
               "今回のペアで、攻め受け形式が発生しそうな場合、どちらが良いか",
               radioHtml(r("desiredPosition"), POS_OPTS),
@@ -1453,12 +1478,12 @@
             if (before)
               bodyEl.insertAdjacentHTML(
                 "afterbegin",
-                `<p class="annotation">${esc(before)}</p>`,
+                `<p class="sec-notice">${esc(before)}</p>`,
               );
             if (after)
               bodyEl.insertAdjacentHTML(
                 "beforeend",
-                `<p class="annotation">${esc(after)}</p>`,
+                `<p class="sec-notice">${esc(after)}</p>`,
               );
           } else {
             // Field-level: find field via FIELD_KEY_MAP, insert around .field
@@ -1471,12 +1496,12 @@
             if (before)
               fieldEl.insertAdjacentHTML(
                 "beforebegin",
-                `<p class="annotation">${esc(before)}</p>`,
+                `<p class="sec-notice">${esc(before)}</p>`,
               );
             if (after)
               fieldEl.insertAdjacentHTML(
                 "afterend",
-                `<p class="annotation">${esc(after)}</p>`,
+                `<p class="sec-notice">${esc(after)}</p>`,
               );
           }
         });
@@ -1578,7 +1603,8 @@
           .querySelectorAll(".cond-field[data-cond-for]")
           .forEach((wrap) => {
             const val = $r(wrap.dataset.condFor);
-            wrap.style.display = val === "conditional" ? "" : "none";
+            const triggerVal = wrap.dataset.condVal || "conditional";
+            wrap.style.display = val === triggerVal ? "" : "none";
           });
       }
 
@@ -1891,6 +1917,12 @@
 
         // 性的傾向
         const sex = {};
+        const ribaPref = $r(r("ribaPref"));
+        if (ribaPref) {
+          sex.ribaPref = ribaPref;
+          const ribaCond = $v(r("ribaCondition"));
+          if (ribaCond) sex.ribaCondition = ribaCond;
+        }
         const desiredPos = $r(r("desiredPosition"));
         if (desiredPos) {
           sex.desiredPosition = desiredPos;
@@ -2249,6 +2281,8 @@
 
         // 性的傾向
         const sex = sparseData.sexual || {};
+        setRadio(r("ribaPref"), sex.ribaPref);
+        setVal(r("ribaCondition"), sex.ribaCondition);
         setRadio(r("desiredPosition"), sex.desiredPosition);
         setVal(r("desiredPositionComment"), sex.desiredPositionComment);
         setCbs(c("contactRange"), sex.contactRange);
