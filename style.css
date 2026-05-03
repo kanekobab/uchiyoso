@@ -878,18 +878,6 @@ body {
   color: #6366f1;
 }
 
-/* View-only (read-only) range bars — used in view.html */
-.vr-readonly {
-  pointer-events: none;
-}
-.vr-readonly .dr-input::-webkit-slider-thumb {
-  pointer-events: none;
-  cursor: default;
-}
-.vr-readonly .dr-input::-moz-range-thumb {
-  pointer-events: none;
-  cursor: default;
-}
 
 .slider-ticks {
   display: flex;
@@ -1152,7 +1140,7 @@ body {
   gap: 16px;
   padding: 14px 24px;
   border-bottom: 1px solid var(--border);
-  align-items: start;
+  align-items: center;
 }
 
 .v-row:last-child {
@@ -1178,6 +1166,7 @@ body {
   font-size: 14px;
   color: var(--text);
   word-break: break-word;
+  min-width: 0;
 }
 
 .v-text {
@@ -1188,6 +1177,39 @@ body {
   font-size: 15px;
   font-weight: 600;
   color: var(--primary);
+}
+
+/* View-only compact range bars */
+.vr-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.vr-track {
+  flex: 1;
+  height: 7px;
+  background: #eaebf2;
+  border-radius: 999px;
+  position: relative;
+  min-width: 0;
+}
+
+.vr-fill {
+  position: absolute;
+  height: 100%;
+  background: #8b8fd0;
+  border-radius: 999px;
+}
+
+.vr-num {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-m);
+  white-space: nowrap;
+  min-width: 36px;
+  text-align: right;
 }
 
 .v-tags {
