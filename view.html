@@ -451,7 +451,8 @@
           .replace(/</g, "&lt;")
           .replace(/>/g, "&gt;");
 
-      // Render a read-only dual-range bar (matches index.html visual style)
+      // Render a read-only range bar: [track+fill] [number]
+      // Uses a lightweight custom div bar (no input[type=range]).
       function renderDualBar(value, field) {
         if (!value || typeof value !== "object") return null;
         const vMin = value.min ?? 0;
@@ -462,17 +463,15 @@
         if (range === 0) return null;
         const pMin = ((vMin - absMin) / range) * 100;
         const pMax = ((vMax - absMin) / range) * 100;
-        const tc = Math.min(absMax - absMin + 1, 11);
-        const ticks = Array.from({ length: tc }, () => "<span></span>").join("");
+        const unit = field.unit || "";
+        const numText =
+          vMin === vMax ? `${vMin}${unit}` : `${vMin}〜${vMax}${unit}`;
         return (
-          `<div class="dual-range-wrap vr-readonly changed">` +
-          `<div class="dual-range-track">` +
-          `<div class="dr-bg"></div>` +
-          `<div class="dr-fill" style="left:${pMin.toFixed(1)}%;width:${(pMax - pMin).toFixed(1)}%"></div>` +
-          `<input type="range" class="dr-input" min="${absMin}" max="${absMax}" value="${vMin}">` +
-          `<input type="range" class="dr-input" min="${absMin}" max="${absMax}" value="${vMax}">` +
+          `<div class="vr-wrap">` +
+          `<div class="vr-track">` +
+          `<div class="vr-fill" style="left:${pMin.toFixed(1)}%;width:${(pMax - pMin).toFixed(1)}%"></div>` +
           `</div>` +
-          `<div class="slider-ticks">${ticks}</div>` +
+          `<span class="vr-num">${esc(numText)}</span>` +
           `</div>`
         );
       }
