@@ -19,9 +19,12 @@
           <a class="btn btn-edit" href="./editor.html" id="editBtn"
             >⚙️ カスタマイズ</a
           >
-          <button class="btn btn-save" id="saveBtn">
-            💾 保存
-          </button>
+          <div class="hd-save-wrap">
+            <button class="btn btn-save" id="saveBtn">
+              💾 保存して共有URLを発行
+            </button>
+            <p class="save-hint">保存後、相手に送れる共有URLが発行されます</p>
+          </div>
         </div>
       </div>
     </header>
@@ -43,6 +46,7 @@
             <div class="col-heading-desc">
               今回希望する相手側のPCイメージや要望を記入してください
             </div>
+            <p class="range-guide">スライダーを動かしていない項目は「こだわりなし」として扱われます</p>
           </div>
           <div id="right-sections"></div>
         </div>
@@ -62,6 +66,22 @@
         collection,
         serverTimestamp,
       } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+      import {
+        POS_OPTS,
+        RIBA_PREF_OPTS,
+        R18_PREF_OPTS,
+        R18_POSITION_OPTS,
+        RP_POLICY_OPTS,
+        PAIR_GENDER_OPTS,
+        REL_TAG_GROUPS,
+        REL_TAG_ITEMS,
+        CONTACT_RANGE_ITEMS,
+        UNLOCK_CONDITION_OPTS,
+        SENSITIVE_GROUPS,
+        BODY_PART_ITEMS,
+        COLOR_ITEMS,
+        COLOR_MAP,
+      } from "./js/schema.js";
 
       const app = initializeApp({
         apiKey: "AIzaSyADW4T9k6itj9a1hhCmi3ybkyTc9dbTDv0",
@@ -73,218 +93,7 @@
       });
       const db = getFirestore(app);
 
-      // ── Options ─────────────────────────────────────────────────────────
-      const R18_PREF_OPTS = [
-        ["love", "好き"],
-        ["ok", "普通"],
-        ["ng", "NG"],
-        ["conditional", "条件付きなら可能"],
-      ];
-      const R18_POSITION_OPTS = [
-        ["offender", "自PC加害 / 攻め"],
-        ["victim", "自PC被害 / 受け"],
-        ["either", "どちらでも"],
-        ["third_party", "第三者のみ"],
-      ];
-      const RP_POLICY_OPTS = [
-        ["rp", "RPをする"],
-        ["narrate", "描写を流すだけが良い"],
-        ["skip", "描写も要らない（事後形式）"],
-      ];
-      const POS_OPTS = [
-        ["top", "攻め希望"],
-        ["bottom", "受け希望"],
-        ["either_riba", "どちらでも（リバ）"],
-        ["sub_top", "従属的な攻め"],
-        ["mental_bottom", "精神優位の受け"],
-        ["discuss", "要相談"],
-      ];
-      const RIBA_PREF_OPTS = [
-        ["fixed", "完全固定"],
-        ["cond_riba", "条件付きリバ可"],
-        ["full_riba", "完全リバ可"],
-      ];
-      const PAIR_GENDER_OPTS = [
-        ["hetero", "異性同士"],
-        ["male", "男同士"],
-        ["female", "女同士"],
-      ];
-
-      // 関係タグ（カテゴリグループ → フラット配列も生成）
-      const REL_TAG_GROUPS = [
-        [
-          "日常・関係性",
-          [
-            "友人",
-            "親友",
-            "幼馴染",
-            "年の差",
-            "仕事仲間",
-            "上司/部下",
-            "相方/バディ",
-            "元・○○",
-            "悪友",
-            "同居人",
-            "追っかけ・ファン",
-            "凸凹",
-          ],
-        ],
-        [
-          "家族・主従・契約",
-          [
-            "きょうだい（血縁）",
-            "きょうだい（疑似）",
-            "親子（血縁）",
-            "親子（疑似）",
-            "師弟",
-            "主従",
-            "契約関係",
-            "理解者",
-            "利害の一致",
-          ],
-        ],
-        [
-          "恋愛・親密",
-          [
-            "片思い",
-            "両片思い",
-            "恋人",
-            "夫婦",
-            "初恋",
-            "お試し交際",
-            "貞操逆転",
-          ],
-        ],
-        ["対立・緊張", ["ライバル", "犬猿", "宿敵", "仇"]],
-        [
-          "歪んだ関係・依存",
-          ["セフレ", "執着", "愛憎", "崇拝", "飼育", "加害被害関係"],
-        ],
-        [
-          "特殊・設定系",
-          [
-            "人外と人間",
-            "共犯者",
-            "共依存",
-            "身代わり",
-            "救済",
-            "天才/秀才",
-            "運命共同体",
-          ],
-        ],
-      ];
-      const REL_TAG_ITEMS = REL_TAG_GROUPS.flatMap(([, items]) => items);
-
-      const CONTACT_RANGE_ITEMS = [
-        "なし",
-        "包容",
-        "キス",
-        "ソフト（R15）",
-        "ハード（R18）",
-        "特殊性癖",
-        "猟奇的表現（R18G）",
-      ];
-      const UNLOCK_CONDITION_OPTS = [
-        ["lovers", "恋人同士"],
-        ["romantic", "PCが相手を恋愛対象と認識している"],
-        ["care", "PCが相手を大切だと認識している"],
-        ["interest", "目的の利害が一致した時"],
-        ["agreement", "PL同士の合意があれば可能"],
-        ["dice", "精神衰弱・発狂時などのダイスによる結果"],
-      ];
-      const SENSITIVE_GROUPS = [
-        [
-          "肉体・バイオレンス",
-          [
-            "暴力行為",
-            "リョナ",
-            "四肢欠損",
-            "カニバリズム",
-            "ゴア表現",
-            "薬物",
-            "妊娠・出産",
-            "女装・男装",
-            "女体化・男体化",
-            "スカトロ",
-          ],
-        ],
-        [
-          "精神・尊厳破壊",
-          [
-            "洗脳",
-            "廃人化",
-            "精神的屈服",
-            "記憶喪失",
-            "自己犠牲",
-            "いじめ・ハラスメント",
-          ],
-        ],
-        [
-          "関係性・愛執",
-          [
-            "依存",
-            "共依存",
-            "執着",
-            "監禁",
-            "無理やり",
-            "ストーカー",
-            "裏切り",
-            "見捨て",
-            "見捨てられ",
-            "仲違い",
-            "NTR",
-            "売春",
-            "人身売買",
-            "モブ介入",
-          ],
-        ],
-        [
-          "運命・倫理・結末",
-          [
-            "心中",
-            "死別",
-            "メリバ",
-            "近親相姦",
-            "未成年（教師生徒など）",
-            "犯罪行為",
-            "人外化・寄生",
-            "クローン・偽物",
-          ],
-        ],
-      ];
-      const BODY_PART_ITEMS = [
-        "メイク",
-        "まつ毛",
-        "唇",
-        "ほくろ",
-        "胸",
-        "筋肉",
-        "腰",
-        "お尻",
-        "太もも",
-        "足の長さ",
-        "傷跡・火傷",
-      ];
-      const COLOR_ITEMS = [
-        "無",
-        "赤",
-        "オレンジ",
-        "黄",
-        "緑",
-        "青",
-        "紫",
-        "ピンク",
-      ];
-      const COLOR_MAP = {
-        無: { bg: "#e4e0ec", fg: "#555" },
-        赤: { bg: "#e84040", fg: "#fff" },
-        オレンジ: { bg: "#f07020", fg: "#fff" },
-        黄: { bg: "#c8a800", fg: "#fff" },
-        緑: { bg: "#28a050", fg: "#fff" },
-        青: { bg: "#2060d0", fg: "#fff" },
-        紫: { bg: "#8040c0", fg: "#fff" },
-        ピンク: { bg: "#d060a0", fg: "#fff" },
-      };
+      // ── Options（js/schema.js からインポート済み）──────────────────────────
 
       // ── Field key → DOM anchor element map ───────────────────────────────
       // Used by applyTemplate() to locate each .field wrapper in the built DOM.
@@ -484,8 +293,7 @@
       };
 
       // ── State ────────────────────────────────────────────────────────────
-      let pairId = null,
-        isDirty = false,
+      let isDirty = false,
         collapseEnabled = false,
         editId = null; // null = 新規作成 / string = 既存ドキュメントの更新
 
@@ -724,7 +532,7 @@
             ) +
             fieldHtml(
               "感情タイプ（複数可）",
-              `<div id="${r("emotionTypes")}-wrap"><span class="emotion-empty">関係タグを選択すると感情タイプが表示されます</span></div>`,
+              `<div id="${r("emotionTypes")}-wrap"><span class="emotion-empty">↑ 上の「関係タグ」を選択すると候補が表示されます</span></div>`,
               "シナリオを通過し終わった時に行き着いて欲しい感情値はどこか",
             ) +
             // 関係値の進行時間について（感情タイプの下）
@@ -891,6 +699,8 @@
               "目の色（複数可）",
               colorPickHtml(r("eyeColorList"), COLOR_ITEMS),
             ) +
+            `<button class="detail-toggle" type="button" data-target="sec-appearance-detail" data-open-text="▼ 目・眉の詳細を表示" data-close-text="▲ 詳細を隠す">▼ 目・眉の詳細を表示</button>` +
+            `<div class="detail-section" id="sec-appearance-detail">` +
             fieldRow2(
               fieldHtml(
                 "目の明度",
@@ -946,6 +756,7 @@
                 ),
               ),
             ) +
+            `</div>` +
             `<p class="sub-title">顔の印象</p>` +
             fieldRow2(
               fieldHtml(
@@ -1218,16 +1029,6 @@
         return html;
       }
 
-      // ── Section IDs ──────────────────────────────────────────────────────
-      const ALL_SEC_IDS = [
-        "sec-charpreview",
-        "sec-relreq",
-        "sec-pl3l",
-        "sec-plsensitive",
-        "sec-appearance",
-        "sec-personality",
-      ];
-
       // ── Collapse detection ────────────────────────────────────────────────
       // defMin/defMax: the DEFAULT values rendered in the slider (not abs bounds)
       function rangeChg(v, defMin = 4, defMax = 6) {
@@ -1235,110 +1036,6 @@
         if (typeof v === "object") return v.min !== defMin || v.max !== defMax;
         if (typeof v === "number") return v !== 5;
         return false;
-      }
-
-      function hasSectionInput(secId, data) {
-        const co = data.questionnaire?.owner?.consent || {};
-        const rq = data.questionnaire?.owner?.request || {};
-        const cp = data.characterPreview || {};
-        const str = (v) => (v ?? "") !== "";
-        const arr = (v) => (v ?? []).length > 0;
-        const hasArr = (v) => (Array.isArray(v) ? v.length > 0 : !!v);
-        switch (secId) {
-          case "sec-charpreview":
-            return str(cp.owner) || str(cp.partner);
-          case "sec-relreq":
-            return (
-              arr(co.relationshipTags) ||
-              hasArr(co.pairGender) ||
-              str(rq.desiredRelationship) ||
-              str(rq.desiredSituation) ||
-              rangeChg(rq.initialAffection) ||
-              rangeChg(rq.finalAffection) ||
-              arr(rq.emotionTypes) ||
-              arr(rq.progressionTime)
-            );
-          case "sec-pl3l":
-            return (
-              str(rq.desiredPosition) ||
-              arr(co.contactRange) ||
-              str(co.r18Position) ||
-              str(co.rpPolicy) ||
-              str(co.threelComment)
-            );
-          case "sec-plsensitive":
-            return (
-              arr(co.sensitiveTags) ||
-              str(co.r18Preference) ||
-              str(co.r18Position) ||
-              str(co.r18gPreference) ||
-              str(co.r18gPosition) ||
-              str(co.sensitiveNote)
-            );
-          case "sec-appearance":
-            return (
-              arr(rq.bodyParts) ||
-              rangeChg(rq.bodyType) ||
-              rangeChg(rq.eyeShape) ||
-              rangeChg(rq.eyeSize) ||
-              arr(rq.eyeColorList) ||
-              rangeChg(rq.eyeBrightness) ||
-              rangeChg(rq.eyeSaturation) ||
-              rangeChg(rq.eyebrowAngle) ||
-              rangeChg(rq.eyebrowThickness) ||
-              rangeChg(rq.eyebrowLength) ||
-              rangeChg(rq.eyebrowEyeDistance) ||
-              rangeChg(rq.faceImpression1) ||
-              rangeChg(rq.faceImpression2) ||
-              rangeChg(rq.hairWave) ||
-              rangeChg(rq.hairLength) ||
-              arr(rq.hairColorList) ||
-              rangeChg(rq.hairBrightness) ||
-              rangeChg(rq.hairSaturation) ||
-              str(rq.hairStyle) ||
-              str(rq.vibe) ||
-              str(rq.appearanceNG) ||
-              rangeChg(rq.ageRange, 18, 29) ||
-              rangeChg(rq.heightRange, 150, 180)
-            );
-          case "sec-personality":
-            return (
-              rangeChg(rq.lightDark) ||
-              rangeChg(rq.pastWeight) ||
-              rangeChg(rq.sadismMasochism) ||
-              rangeChg(rq.tsunDere) ||
-              rangeChg(rq.mentalStrength) ||
-              rangeChg(rq.emotionExpression) ||
-              rangeChg(rq.dependencyLevel) ||
-              rangeChg(rq.initiative) ||
-              rangeChg(rq.personalSpace) ||
-              rangeChg(rq.trustStyle) ||
-              rangeChg(rq.ethics) ||
-              rangeChg(rq.extroversion) ||
-              rangeChg(rq.intellectLevel) ||
-              rangeChg(rq.secretiveness) ||
-              rangeChg(rq.innerVoice) ||
-              rangeChg(rq.composure) ||
-              rangeChg(rq.pride) ||
-              rangeChg(rq.emotionWeight) ||
-              rangeChg(rq.possessiveness) ||
-              rangeChg(rq.sincerity) ||
-              str(rq.likes) ||
-              str(rq.dislikes)
-            );
-          default:
-            return true;
-        }
-      }
-
-      function enableCollapse(data) {
-        collapseEnabled = true;
-        document.getElementById("mainEl").classList.add("collapse-active");
-        ALL_SEC_IDS.forEach((id) => {
-          const sec = document.getElementById(id);
-          if (!sec) return;
-          if (!hasSectionInput(id, data)) sec.classList.add("closed");
-        });
       }
 
       // ── Apply template ────────────────────────────────────────────────────
@@ -1646,6 +1343,20 @@
           }
         });
 
+        document.addEventListener("click", (e) => {
+          const btn = e.target.closest(".detail-toggle");
+          if (!btn) return;
+          const targetId = btn.dataset.target;
+          const section = document.getElementById(targetId);
+          if (!section) return;
+          const opening = !section.classList.contains("open");
+          section.classList.toggle("open", opening);
+          btn.classList.toggle("open", opening);
+          btn.textContent = opening
+            ? (btn.dataset.closeText || "▲ 詳細を隠す")
+            : (btn.dataset.openText || "▼ 詳細を表示");
+        });
+
         document.addEventListener("change", (e) => {
           if (e.target.type === "radio" || e.target.type === "checkbox") {
             updateConditionalFields();
@@ -1686,9 +1397,6 @@
       function markDirty() {
         isDirty = true;
       }
-      function markClean() {
-        isDirty = false;
-      }
       function setStatus(msg) {
         /* status bar removed */
       }
@@ -1723,160 +1431,7 @@
         });
       }
 
-      // ── Collect ───────────────────────────────────────────────────────────
-      //
-      // ── DEPRECATED FIELDS ────────────────────────────────────────────────────
-      // UIが存在しないため新規保存には含めない。
-      // Firestore既存ドキュメントに残存している可能性があるが、読み込み時も無視する。
-      // 最終削除フェーズ（Firestoreバッチクリーンアップ後）に本コメントを削除すること。
-      //
-      // [consent — 旧保存形式 questionnaire.owner.consent 経由のフィールド]
-      //   relationshipScope, relationshipScopeComment, progressionSpeed
-      //   hlPreference, hlComment, blPreference, blComment, glPreference, glComment
-      //   hlMaleRole, hlMaleComment, hlFemaleRole, hlFemaleComment
-      //   sameTop, sameTopComment, sameBottom, sameBottomComment, sameSwitch, sameSwitchComment
-      //   r18Allowed, r18gAllowed
-      //
-      // [request — 旧保存形式 questionnaire.owner.request 経由のフィールド]
-      //   emphasizeParts, avoidParts, faceDetails, hairDetails
-      //
-      // [sparseData.relationship — UIなし、常にデフォルト値になるため未保存]
-      //   partnerEmotion  → singleRangeHtml をUIから削除済み。getSingleRange が常に5を返す
-      //   emotionComment  → text input をUIから削除済み。$v が常に "" を返す
-      //
-      // [DEAD CODE — 接続されていない関数（削除不可、再設計フェーズ完了まで保持）]
-      //   collectData()       旧 setDoc 用。pairId ベースの更新フロー
-      //   collectConsent()    上記から呼ばれる。現行は collectSparseData 内でインライン実装
-      //   collectRequest()    同上
-      //   saveData()          setDoc による更新保存。init() から切断中
-      //   loadData()          getDoc によるデータロード。init() から切断中
-      //   populateData()      ロードデータの反映。loadData から呼ばれる
-      //   populateConsent()   同上
-      //   populateRequest()   同上
-      //   buildSummaryHtml()  旧 questionnaire 構造を前提とするサマリーHTML生成
-      //   renderSummaryPage() ?view=summary ルート。init() から切断中
-      //   copyURL()           URLコピー。ボタンは HTML から削除済み
-      //   copySummaryURL()    概要URLコピー。ボタンは HTML から削除済み
-      //
-      function collectConsent(role) {
-        const c = (k) => `${role}-consent-${k}`;
-        const contactRange = $cbs(c("contactRange"));
-        const contactConditions = {};
-        CONTACT_RANGE_ITEMS.filter((item) => item !== "なし").forEach(
-          (item) => {
-            const sk = safeKey(item);
-            const condName = `${c("contactConditions")}-${sk}`;
-            const vals = $cbs(condName);
-            if (vals.length > 0) contactConditions[item] = vals;
-          },
-        );
-        return {
-          // pairGender: 複数選択配列（旧データはstring→後方互換あり）
-          pairGender: $cbs(c("pairGender")),
-          threelComment: $v(c("threelComment")),
-          relationshipTags: $cbs(c("relationshipTags")),
-          contactRange,
-          contactConditions,
-          r18Preference: $r(c("r18Preference")),
-          r18Comment: $v(c("r18Comment")),
-          r18Position: $r(c("r18Position")),
-          r18gPreference: $r(c("r18gPreference")),
-          r18gComment: $v(c("r18gComment")),
-          r18gPosition: $r(c("r18gPosition")),
-          rpPolicy: $r(c("rpPolicy")),
-          sensitiveTags: $togs(c("sensitiveTags") + "-group"),
-          sensitiveNote: $v(c("sensitiveNote")),
-        };
-      }
-      function collectRequest(role) {
-        const r = (k) => `${role}-request-${k}`;
-        return {
-          ageRange: getDualRange(r("ageRange")),
-          heightRange: getDualRange(r("heightRange")),
-          bodyType: getDualRange(r("bodyType")),
-          bodyParts: $togs(r("bodyParts") + "-group"),
-          eyeShape: getDualRange(r("eyeShape")),
-          eyeSize: getDualRange(r("eyeSize")),
-          eyeColorList: $cbs(r("eyeColorList")),
-          eyeBrightness: getDualRange(r("eyeBrightness")),
-          eyeSaturation: getDualRange(r("eyeSaturation")),
-          eyebrowAngle: getDualRange(r("eyebrowAngle")),
-          eyebrowThickness: getDualRange(r("eyebrowThickness")),
-          eyebrowLength: getDualRange(r("eyebrowLength")),
-          eyebrowEyeDistance: getDualRange(r("eyebrowEyeDistance")),
-          faceImpression1: getDualRange(r("faceImpression1")),
-          faceImpression2: getDualRange(r("faceImpression2")),
-          hairWave: getDualRange(r("hairWave")),
-          hairLength: getDualRange(r("hairLength")),
-          hairColorList: $cbs(r("hairColorList")),
-          hairBrightness: getDualRange(r("hairBrightness")),
-          hairSaturation: getDualRange(r("hairSaturation")),
-          hairStyle: $v(r("hairStyle")),
-          vibe: $v(r("vibe")),
-          appearanceNG: $v(r("appearanceNG")),
-          // emphasizeParts / avoidParts / faceDetails / hairDetails → deprecated（上部コメント参照）
-          lightDark: getDualRange(r("lightDark")),
-          pastWeight: getDualRange(r("pastWeight")),
-          sadismMasochism: getDualRange(r("sadismMasochism")),
-          tsunDere: getDualRange(r("tsunDere")),
-          mentalStrength: getDualRange(r("mentalStrength")),
-          emotionExpression: getDualRange(r("emotionExpression")),
-          dependencyLevel: getDualRange(r("dependencyLevel")),
-          initiative: getDualRange(r("initiative")),
-          personalSpace: getDualRange(r("personalSpace")),
-          trustStyle: getDualRange(r("trustStyle")),
-          ethics: getDualRange(r("ethics")),
-          extroversion: getDualRange(r("extroversion")),
-          intellectLevel: getDualRange(r("intellectLevel")),
-          secretiveness: getDualRange(r("secretiveness")),
-          innerVoice: getDualRange(r("innerVoice")),
-          composure: getDualRange(r("composure")),
-          pride: getDualRange(r("pride")),
-          emotionWeight: getDualRange(r("emotionWeight")),
-          possessiveness: getDualRange(r("possessiveness")),
-          sincerity: getDualRange(r("sincerity")),
-          likes: $v(r("likes")),
-          dislikes: $v(r("dislikes")),
-          desiredRelationship: $v(r("desiredRelationship")),
-          desiredPosition: $r(r("desiredPosition")),
-          desiredPositionComment: $v(r("desiredPositionComment")),
-          desiredSituation: $v(r("desiredSituation")),
-          initialAffection: getDualRange(r("initialAffection")),
-          finalAffection: getDualRange(r("finalAffection")),
-          partnerEmotion: getSingleRange(r("partnerEmotion")),
-          emotionTypes: $cbs(r("emotionTypes")),
-          progressionTime: $cbs(r("progressionTime")),
-          emotionComment: $v(r("emotionComment")),
-        };
-      }
-      function collectData() {
-        return {
-          pairId,
-          // 以下4フィールドはUIなし（将来使用の可能性あり・保留）
-          // Firestoreセキュリティルール（isValidData）が keys().hasAll() で必須としているため削除不可
-          owner: {},
-          partner: {},
-          relationship: "",
-          settings: "",
-          characterPreview: {
-            owner: $v("ownerCharPreview"),
-            partner: $v("partnerCharPreview"),
-          },
-          questionnaire: {
-            owner: {
-              consent: collectConsent("owner"),
-              request: collectRequest("owner"),
-            },
-            partner: {
-              consent: collectConsent("partner"),
-              request: collectRequest("partner"),
-            },
-          },
-          updatedAt: serverTimestamp(),
-        };
-      }
-
-      // ── 新フロー: 入力済み項目のみ収集（スパース形式）──────────────────────
+      // ── 入力済み項目のみ収集（スパース形式）──────────────────────────────────
       // 未入力・デフォルト値のフィールドは含めない。view.html への保存用。
       function collectSparseData() {
         const r = (k) => `owner-request-${k}`;
@@ -1903,16 +1458,12 @@
         if (rangeChg(initAff)) rel.initialAffection = initAff;
         const finalAff = getDualRange(r("finalAffection"));
         if (rangeChg(finalAff)) rel.finalAffection = finalAff;
-        const partnerEmo = getSingleRange(r("partnerEmotion"));
-        if (partnerEmo !== 5) rel.partnerEmotion = partnerEmo;
         const emoTypes = $cbs(r("emotionTypes"));
         if (emoTypes.length) rel.emotionTypes = emoTypes;
         const progTime = $cbs(r("progressionTime"));
         if (progTime.length) rel.progressionTime = progTime;
         const desiredSit = $v(r("desiredSituation"));
         if (desiredSit) rel.desiredSituation = desiredSit;
-        const emoComment = $v(r("emotionComment"));
-        if (emoComment) rel.emotionComment = emoComment;
         if (Object.keys(rel).length) data.relationship = rel;
 
         // 性的傾向
@@ -2142,117 +1693,6 @@
         window.location.href = `./view.html?id=${savedId}`;
       }
 
-      // ── Populate ──────────────────────────────────────────────────────────
-      function populateConsent(role, co) {
-        if (!co) return;
-        const c = (k) => `${role}-consent-${k}`;
-        // pairGender: 旧データ（string）と新データ（array）両対応
-        if (Array.isArray(co.pairGender)) {
-          setCbs(c("pairGender"), co.pairGender);
-        } else if (co.pairGender) {
-          setCbs(c("pairGender"), [co.pairGender]);
-        }
-        setVal(c("threelComment"), co.threelComment);
-        setCbs(c("relationshipTags"), co.relationshipTags);
-        updateEmotionTypes(role);
-        setCbs(c("contactRange"), co.contactRange);
-        updateContactConditions(role);
-        if (co.contactConditions && typeof co.contactConditions === "object") {
-          Object.entries(co.contactConditions).forEach(([item, vals]) => {
-            const sk = safeKey(item);
-            const condName = `${c("contactConditions")}-${sk}`;
-            if (Array.isArray(vals)) setCbs(condName, vals);
-          });
-        }
-        setRadio(c("r18Preference"), co.r18Preference);
-        setVal(c("r18Comment"), co.r18Comment);
-        setRadio(c("r18Position"), co.r18Position);
-        setRadio(c("r18gPreference"), co.r18gPreference);
-        setVal(c("r18gComment"), co.r18gComment);
-        setRadio(c("r18gPosition"), co.r18gPosition);
-        setRadio(c("rpPolicy"), co.rpPolicy);
-        setTogs(c("sensitiveTags") + "-group", co.sensitiveTags);
-        setVal(c("sensitiveNote"), co.sensitiveNote);
-        updateConditionalFields();
-      }
-      function populateRequest(role, rq) {
-        if (!rq) return;
-        const r = (k) => `${role}-request-${k}`;
-        // 年齢・身長は元のスケール
-        setDualRange(r("ageRange"), rq.ageRange, 18, 29);
-        setDualRange(r("heightRange"), rq.heightRange, 150, 180);
-        // 0〜10スケール（デフォルト4〜6）
-        setDualRange(r("bodyType"), rq.bodyType, 4, 6);
-        setTogs(r("bodyParts") + "-group", rq.bodyParts);
-        setDualRange(r("eyeShape"), rq.eyeShape, 4, 6);
-        setDualRange(r("eyeSize"), rq.eyeSize, 4, 6);
-        setCbs(r("eyeColorList"), rq.eyeColorList);
-        setDualRange(r("eyeBrightness"), rq.eyeBrightness, 4, 6);
-        setDualRange(r("eyeSaturation"), rq.eyeSaturation, 4, 6);
-        setDualRange(r("eyebrowAngle"), rq.eyebrowAngle, 4, 6);
-        setDualRange(r("eyebrowThickness"), rq.eyebrowThickness, 4, 6);
-        setDualRange(r("eyebrowLength"), rq.eyebrowLength, 4, 6);
-        setDualRange(r("eyebrowEyeDistance"), rq.eyebrowEyeDistance, 4, 6);
-        setDualRange(r("faceImpression1"), rq.faceImpression1, 4, 6);
-        setDualRange(r("faceImpression2"), rq.faceImpression2, 4, 6);
-        setDualRange(r("hairWave"), rq.hairWave, 4, 6);
-        setDualRange(r("hairLength"), rq.hairLength, 4, 6);
-        setCbs(r("hairColorList"), rq.hairColorList);
-        setDualRange(r("hairBrightness"), rq.hairBrightness, 4, 6);
-        setDualRange(r("hairSaturation"), rq.hairSaturation, 4, 6);
-        setVal(r("hairStyle"), rq.hairStyle);
-        setVal(r("vibe"), rq.vibe);
-        setVal(r("appearanceNG"), rq.appearanceNG);
-        setDualRange(r("lightDark"), rq.lightDark, 4, 6);
-        setDualRange(r("pastWeight"), rq.pastWeight, 4, 6);
-        setDualRange(r("sadismMasochism"), rq.sadismMasochism, 4, 6);
-        setDualRange(r("tsunDere"), rq.tsunDere, 4, 6);
-        setDualRange(r("mentalStrength"), rq.mentalStrength, 4, 6);
-        setDualRange(r("emotionExpression"), rq.emotionExpression, 4, 6);
-        setDualRange(r("dependencyLevel"), rq.dependencyLevel, 4, 6);
-        setDualRange(r("initiative"), rq.initiative, 4, 6);
-        setDualRange(r("personalSpace"), rq.personalSpace, 4, 6);
-        setDualRange(r("trustStyle"), rq.trustStyle, 4, 6);
-        setDualRange(r("ethics"), rq.ethics, 4, 6);
-        setDualRange(r("extroversion"), rq.extroversion, 4, 6);
-        setDualRange(r("intellectLevel"), rq.intellectLevel, 4, 6);
-        setDualRange(r("secretiveness"), rq.secretiveness, 4, 6);
-        setDualRange(r("innerVoice"), rq.innerVoice, 4, 6);
-        setDualRange(r("composure"), rq.composure, 4, 6);
-        setDualRange(r("pride"), rq.pride, 4, 6);
-        setDualRange(r("emotionWeight"), rq.emotionWeight, 4, 6);
-        setDualRange(r("possessiveness"), rq.possessiveness, 4, 6);
-        setDualRange(r("sincerity"), rq.sincerity, 4, 6);
-        setVal(r("likes"), rq.likes);
-        setVal(r("dislikes"), rq.dislikes);
-        setVal(r("desiredRelationship"), rq.desiredRelationship);
-        setRadio(r("desiredPosition"), rq.desiredPosition);
-        setVal(r("desiredPositionComment"), rq.desiredPositionComment);
-        setVal(r("desiredSituation"), rq.desiredSituation);
-        setDualRange(r("initialAffection"), rq.initialAffection, 4, 6);
-        setDualRange(r("finalAffection"), rq.finalAffection, 4, 6);
-        setSingleRange(r("partnerEmotion"), rq.partnerEmotion);
-        setCbs(r("emotionTypes"), rq.emotionTypes);
-        setCbs(r("progressionTime"), rq.progressionTime);
-        setVal(r("emotionComment"), rq.emotionComment);
-        updateConditionalFields();
-      }
-      function populateData(data) {
-        if (!data) return;
-        setVal("ownerCharPreview", data.characterPreview?.owner);
-        setVal("partnerCharPreview", data.characterPreview?.partner);
-        const q = data.questionnaire || {};
-        populateConsent("owner", q.owner?.consent);
-        populateRequest("owner", q.owner?.request);
-        if (data.updatedAt) {
-          const d = data.updatedAt.toDate
-            ? data.updatedAt.toDate()
-            : new Date(data.updatedAt);
-          document.getElementById("updatedAt").textContent =
-            "更新: " + d.toLocaleString("ja-JP");
-        }
-      }
-
       // ── populateSparseData ────────────────────────────────────────────────
       // sparseData（view.html 保存形式）をフォームに反映する。
       // 編集モード（?id=）でロード後に呼ばれる。
@@ -2365,340 +1805,9 @@
         updateConditionalFields();
       }
 
-      // ── Summary view ──────────────────────────────────────────────────────
-      function radioLabel(opts, val) {
-        const o = opts.find(([v]) => v === val);
-        return o ? o[1] : val || "";
-      }
-      function rangeDisp(v, unit = "") {
-        if (!v) return "";
-        if (typeof v === "number") return v + unit;
-        return (v.min ?? 0) + "〜" + (v.max ?? 10) + unit;
-      }
-
-      function buildSummaryHtml(data) {
-        const co = data.questionnaire?.owner?.consent || {};
-        const rq = data.questionnaire?.owner?.request || {};
-        const cp = data.characterPreview || {};
-        const str = (v) => (v ?? "") !== "";
-        const arr = (v) => Array.isArray(v) && v.length > 0;
-        const sections = [];
-
-        // キャラ予定
-        const c1 = [];
-        if (str(cp.owner)) c1.push(["自分のキャラ予定", cp.owner]);
-        if (str(cp.partner)) c1.push(["相手のキャライメージ", cp.partner]);
-        if (c1.length) sections.push(["✨ キャラクター予定", c1]);
-
-        // 関係
-        const c2 = [];
-        // pairGender: 旧データ（string）と新データ（array）両対応
-        const pgArr = Array.isArray(co.pairGender)
-          ? co.pairGender
-          : co.pairGender
-            ? [co.pairGender]
-            : [];
-        if (pgArr.length > 0) {
-          const pgLabels = pgArr
-            .map((v) => radioLabel(PAIR_GENDER_OPTS, v))
-            .filter(Boolean);
-          c2.push(["ペア種別", "__TAGS__" + JSON.stringify(pgLabels)]);
-        }
-        if (arr(co.relationshipTags))
-          c2.push([
-            "関係タグ",
-            "__TAGS__" + JSON.stringify(co.relationshipTags),
-          ]);
-        if (str(rq.desiredRelationship))
-          c2.push(["希望する関係の形", rq.desiredRelationship]);
-        if (rangeChg(rq.initialAffection))
-          c2.push(["初期好感度", rangeDisp(rq.initialAffection)]);
-        if (rangeChg(rq.finalAffection))
-          c2.push(["最終好感度", rangeDisp(rq.finalAffection)]);
-        if (rq.partnerEmotion != null && rq.partnerEmotion !== 5)
-          c2.push(["相手→自分への感情", String(rq.partnerEmotion) + " / 10"]);
-        if (arr(rq.emotionTypes))
-          c2.push(["感情タイプ", "__TAGS__" + JSON.stringify(rq.emotionTypes)]);
-        if (arr(rq.progressionTime))
-          c2.push([
-            "進行時間",
-            "__TAGS__" +
-              JSON.stringify(
-                rq.progressionTime.map((v) =>
-                  v === "oneshot"
-                    ? "1シナリオ内で最終ラインまで"
-                    : v === "gradual"
-                      ? "継続を通じて段階的に"
-                      : v,
-                ),
-              ),
-          ]);
-        if (str(rq.desiredSituation))
-          c2.push(["希望するシチュエーション", rq.desiredSituation]);
-        if (str(rq.emotionComment)) c2.push(["その他", rq.emotionComment]);
-        if (c2.length) sections.push(["💭 関係", c2]);
-
-        // 性的傾向
-        const c3 = [];
-        if (str(rq.desiredPosition))
-          c3.push([
-            "ポジション",
-            radioLabel(POS_OPTS, rq.desiredPosition) +
-              (rq.desiredPositionComment
-                ? `（${rq.desiredPositionComment}）`
-                : ""),
-          ]);
-        if (arr(co.contactRange))
-          c3.push([
-            "展開の許容範囲",
-            "__TAGS__" + JSON.stringify(co.contactRange),
-          ]);
-        if (co.contactConditions && typeof co.contactConditions === "object") {
-          Object.entries(co.contactConditions).forEach(([item, vals]) => {
-            if (Array.isArray(vals) && vals.length > 0) {
-              const condLabels = vals.map((v) => {
-                const opt = UNLOCK_CONDITION_OPTS.find(([k]) => k === v);
-                return opt ? opt[1] : v;
-              });
-              c3.push([
-                `${item} の条件`,
-                "__TAGS__" + JSON.stringify(condLabels),
-              ]);
-            }
-          });
-        }
-        if (str(co.threelComment)) c3.push(["コメント", co.threelComment]);
-        if (c3.length) sections.push(["💕 性的傾向", c3]);
-
-        // 地雷・センシティブ（R18含む）
-        const c5 = [];
-        if (str(co.r18Preference))
-          c5.push([
-            "R18",
-            radioLabel(R18_PREF_OPTS, co.r18Preference) +
-              (co.r18Comment ? `（${co.r18Comment}）` : ""),
-          ]);
-        if (str(co.r18gPreference))
-          c5.push([
-            "R18G",
-            radioLabel(R18_PREF_OPTS, co.r18gPreference) +
-              (co.r18gComment ? `（${co.r18gComment}）` : ""),
-          ]);
-        const sGood = (co.sensitiveTags || []).filter(
-          (t) => !t.startsWith("!"),
-        );
-        const sBad = (co.sensitiveTags || [])
-          .filter((t) => t.startsWith("!"))
-          .map((t) => t.slice(1));
-        if (sGood.length)
-          c5.push(["好き・あり", "__TAGS__" + JSON.stringify(sGood)]);
-        if (sBad.length)
-          c5.push(["苦手・なし", "__TAGS_BAD__" + JSON.stringify(sBad)]);
-        if (str(co.sensitiveNote)) c5.push(["補足コメント", co.sensitiveNote]);
-        if (c5.length) sections.push(["🚫 地雷・センシティブ", c5]);
-
-        // 外見
-        const c6 = [];
-        if (rangeChg(rq.ageRange, 18, 29))
-          c6.push(["年齢帯", rangeDisp(rq.ageRange, "歳")]);
-        if (rangeChg(rq.heightRange, 150, 180))
-          c6.push(["身長帯", rangeDisp(rq.heightRange, "cm")]);
-        if (rangeChg(rq.bodyType)) c6.push(["体型", rangeDisp(rq.bodyType)]);
-        const bpGood = (rq.bodyParts || []).filter((t) => !t.startsWith("!"));
-        const bpBad = (rq.bodyParts || [])
-          .filter((t) => t.startsWith("!"))
-          .map((t) => t.slice(1));
-        if (bpGood.length)
-          c6.push(["好きなパーツ", "__TAGS__" + JSON.stringify(bpGood)]);
-        if (bpBad.length)
-          c6.push(["嫌いなパーツ", "__TAGS_BAD__" + JSON.stringify(bpBad)]);
-        [
-          ["目の形", rq.eyeShape],
-          ["目の大きさ", rq.eyeSize],
-          ["目の明度", rq.eyeBrightness],
-          ["目の彩度", rq.eyeSaturation],
-          ["眉カーブ", rq.eyebrowAngle],
-          ["眉の太さ", rq.eyebrowThickness],
-          ["眉の長さ", rq.eyebrowLength],
-          ["顔の系統", rq.faceImpression1],
-          ["雰囲気", rq.faceImpression2],
-          ["髪質", rq.hairWave],
-          ["髪の長さ", rq.hairLength],
-          ["髪の明度", rq.hairBrightness],
-          ["髪の彩度", rq.hairSaturation],
-        ].forEach(([lbl, v]) => {
-          if (rangeChg(v)) c6.push([lbl, rangeDisp(v)]);
-        });
-        if (arr(rq.eyeColorList))
-          c6.push(["目の色", "__TAGS__" + JSON.stringify(rq.eyeColorList)]);
-        if (arr(rq.hairColorList))
-          c6.push(["髪色", "__TAGS__" + JSON.stringify(rq.hairColorList)]);
-        if (str(rq.hairStyle)) c6.push(["髪型", rq.hairStyle]);
-        if (str(rq.vibe)) c6.push(["全体の雰囲気", rq.vibe]);
-        if (str(rq.appearanceNG)) c6.push(["外見NG", rq.appearanceNG]);
-        if (c6.length) sections.push(["👤 外見", c6]);
-
-        // 性格
-        const c7 = [];
-        [
-          ["明るさ", rq.lightDark],
-          ["過去の重さ", rq.pastWeight],
-          ["S/M気質", rq.sadismMasochism],
-          ["ツン/デレ", rq.tsunDere],
-          ["メンタル強度", rq.mentalStrength],
-          ["感情表現", rq.emotionExpression],
-          ["依存度", rq.dependencyLevel],
-          ["主導権", rq.initiative],
-          ["パーソナルスペース", rq.personalSpace],
-          ["信頼の形", rq.trustStyle],
-          ["倫理観", rq.ethics],
-          ["外向性", rq.extroversion],
-          ["知的レベル", rq.intellectLevel],
-          ["隠し事", rq.secretiveness],
-          ["心の声", rq.innerVoice],
-          ["余裕", rq.composure],
-          ["プライド", rq.pride],
-          ["感情の重さ", rq.emotionWeight],
-          ["独占欲", rq.possessiveness],
-        ].forEach(([lbl, v]) => {
-          if (rangeChg(v)) c7.push([lbl, rangeDisp(v)]);
-        });
-        if (str(rq.likes)) c7.push(["入れて欲しい要素", rq.likes]);
-        if (str(rq.dislikes)) c7.push(["入れて欲しくない要素", rq.dislikes]);
-        if (c7.length) sections.push(["🧠 性格", c7]);
-
-        const editUrl = new URL(location.href);
-        editUrl.searchParams.delete("view");
-
-        const secHtmlBlocks = sections
-          .map(([title, rows]) => {
-            const rowsHtml = rows
-              .map(([lbl, val]) => {
-                let inner = "";
-                if (typeof val === "string" && val.startsWith("__TAGS__")) {
-                  const arr = JSON.parse(val.slice(8));
-                  inner = arr
-                    .map(
-                      (t) =>
-                        `<span class="sum-tag sum-tag-good">${esc(t)}</span>`,
-                    )
-                    .join("");
-                } else if (
-                  typeof val === "string" &&
-                  val.startsWith("__TAGS_BAD__")
-                ) {
-                  const arr = JSON.parse(val.slice(12));
-                  inner = arr
-                    .map(
-                      (t) =>
-                        `<span class="sum-tag sum-tag-bad">${esc(t)}</span>`,
-                    )
-                    .join("");
-                } else {
-                  inner = esc(String(val)).replace(/\n/g, "<br>");
-                }
-                return `<div class="sum-row"><span class="sum-label">${esc(lbl)}</span><span class="sum-value">${inner}</span></div>`;
-              })
-              .join("");
-            return `<div class="sum-sec"><div class="sum-sec-title">${title}</div>${rowsHtml}</div>`;
-          })
-          .join("");
-
-        return `<div class="summary-page">
-<div class="sum-header">
-  <h1>✦ TRPGうちよそ設定アンケート 概要</h1>
-  <a href="${esc(editUrl.toString())}">✏️ 編集ページへ</a>
-</div>
-${secHtmlBlocks || '<div style="text-align:center;padding:40px;color:var(--text-l)">入力内容がありません</div>'}
-</div>`;
-      }
-
-      async function renderSummaryPage(pid) {
-        document.getElementById("hd").style.display = "none";
-        document.getElementById("mainEl").style.display = "none";
-        document.body.style.background = "var(--bg)";
-        const container = document.createElement("div");
-        container.id = "summary-container";
-        container.innerHTML =
-          '<div style="text-align:center;padding:60px;color:var(--text-l)">読み込み中…</div>';
-        document.body.appendChild(container);
-        try {
-          const snap = await getDoc(doc(db, "pairs", pid));
-          if (snap.exists()) {
-            container.innerHTML = buildSummaryHtml(snap.data());
-          } else {
-            container.innerHTML =
-              '<div style="text-align:center;padding:60px;color:var(--text-l)">データが見つかりません</div>';
-          }
-        } catch (e) {
-          console.error(e);
-          container.innerHTML =
-            '<div style="text-align:center;padding:60px;color:var(--warn)">読み込みエラー</div>';
-        }
-      }
-
-      // ── Firebase ──────────────────────────────────────────────────────────
-      async function loadData() {
-        try {
-          setStatus("読み込み中…");
-          const snap = await getDoc(doc(db, "pairs", pairId));
-          if (snap.exists()) {
-            const data = snap.data();
-            populateData(data);
-            enableCollapse(data);
-            markClean();
-          } else {
-            markDirty();
-          }
-        } catch (e) {
-          console.error(e);
-          setStatus("読み込みエラー");
-          showToast("読み込みに失敗しました", true);
-        }
-      }
-
-      async function saveData() {
-        const btn = document.getElementById("saveBtn");
-        btn.disabled = true;
-        setStatus("保存中…");
-        try {
-          await setDoc(doc(db, "pairs", pairId), collectData(), {
-            merge: true,
-          });
-          markClean();
-          document.getElementById("updatedAt").textContent =
-            "更新: " + new Date().toLocaleString("ja-JP");
-          showToast("保存しました ✓");
-        } catch (e) {
-          console.error(e);
-          setStatus("保存エラー");
-          showToast("保存に失敗しました", true);
-          markDirty();
-        } finally {
-          btn.disabled = false;
-        }
-      }
-
-      async function copyURL() {
-        try {
-          await navigator.clipboard.writeText(location.href);
-          showToast("URLをコピーしました 🔗");
-        } catch {
-          prompt("このURLをコピーしてください：", location.href);
-        }
-      }
-
-      async function copySummaryURL() {
-        const url = new URL(location.href);
-        url.searchParams.set("view", "summary");
-        try {
-          await navigator.clipboard.writeText(url.toString());
-          showToast("概要URLをコピーしました 📋");
-        } catch {
-          prompt("概要URLをコピーしてください：", url.toString());
-        }
-      }
-
+      // ── [削除済み: Summary view / loadData / saveData / copyURL / copySummaryURL] ──
+      // これらの関数は view.html への移管・フロー変更に伴い不要となったため削除。
+      // 参照: CLAUDE.md「Dead Code」セクション
       // ── Toast ─────────────────────────────────────────────────────────────
       let toastTimer;
       function showToast(msg, isErr = false) {
@@ -2709,44 +1818,8 @@ ${secHtmlBlocks || '<div style="text-align:center;padding:40px;color:var(--text-
         toastTimer = setTimeout(() => el.classList.remove("show"), 2500);
       }
 
-      // [一時停止] 離脱警告 — 保存機能再設計完了後に復元する
-      // window.onbeforeunload = () =>
-      //   isDirty ? "変更が保存されていません。このまま離れますか？" : null;
-
       // ── Bootstrap ─────────────────────────────────────────────────────────
-      //
-      // [再設計フェーズ] 保存・共有・概要URL・データロード機能を一時停止中。
-      // 各関数（saveData / loadData / copyURL / copySummaryURL / renderSummaryPage）は
-      // 本体を保持したまま呼び出しのみ停止する。再設計完了後に再接続する。
-      //
-      // 停止対象:
-      //   - URLパラメータ（?id=）によるデータ読み込み  → loadData() をコメントアウト
-      //   - pairId 生成・URL書き換え                   → history.replaceState をコメントアウト
-      //   - ?view=summary による概要ページ表示          → renderSummaryPage をコメントアウト
-      //   - 保存・共有・概要URLボタン                   → HTML側で削除済み（上部コメント参照）
-      //
       async function init() {
-        // -- [停止中] URL・pairId・概要ページ処理 --
-        // const params = new URLSearchParams(location.search);
-        // pairId = params.get("id");
-        // if (!pairId) {
-        //   pairId = crypto.randomUUID();
-        //   const url = new URL(location.href);
-        //   url.searchParams.set("id", pairId);
-        //   history.replaceState(null, "", url.toString());
-        // }
-        // if (params.get("view") === "summary") {
-        //   await renderSummaryPage(pairId);
-        //   return;
-        // }
-
-        // -- [停止中] ボタンイベント登録・データロード --
-        // document.getElementById("saveBtn").addEventListener("click", saveData);
-        // document.getElementById("copyBtn").addEventListener("click", copyURL);
-        // document.getElementById("summaryBtn").addEventListener("click", copySummaryURL);
-        // await loadData();
-
-        // -- 現行有効 --
         initUI();
         document
           .getElementById("saveBtn")

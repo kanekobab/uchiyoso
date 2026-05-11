@@ -59,9 +59,11 @@
         doc,
         getDoc,
         addDoc,
+        setDoc,
         collection,
         serverTimestamp,
       } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+      import { EDITOR_SCHEMA } from "./js/schema.js";
 
       const app = initializeApp({
         apiKey: "AIzaSyADW4T9k6itj9a1hhCmi3ybkyTc9dbTDv0",
@@ -99,398 +101,16 @@
         el.className = cls;
       }
 
-      // ── Option value arrays (mirrors index.html constants) ────────────────
-      // Format: [value, displayLabel] — value must match the DOM value attribute
-      const OPT_PAIR_GENDER = [
-        ["hetero", "異性同士"],
-        ["male", "男同士"],
-        ["female", "女同士"],
-      ];
-      const OPT_REL_TAGS = [
-        // 日常・関係性
-        ["友人", "友人"],
-        ["親友", "親友"],
-        ["幼馴染", "幼馴染"],
-        ["年の差", "年の差"],
-        ["仕事仲間", "仕事仲間"],
-        ["上司/部下", "上司/部下"],
-        ["相方/バディ", "相方/バディ"],
-        ["元・○○", "元・○○"],
-        ["悪友", "悪友"],
-        ["同居人", "同居人"],
-        ["追っかけ・ファン", "追っかけ・ファン"],
-        ["凸凹", "凸凹"],
-        // 家族・主従・契約
-        ["きょうだい（血縁）", "きょうだい（血縁）"],
-        ["きょうだい（疑似）", "きょうだい（疑似）"],
-        ["親子（血縁）", "親子（血縁）"],
-        ["親子（疑似）", "親子（疑似）"],
-        ["師弟", "師弟"],
-        ["主従", "主従"],
-        ["契約関係", "契約関係"],
-        ["理解者", "理解者"],
-        ["利害の一致", "利害の一致"],
-        // 恋愛・親密
-        ["片思い", "片思い"],
-        ["両片思い", "両片思い"],
-        ["恋人", "恋人"],
-        ["夫婦", "夫婦"],
-        ["初恋", "初恋"],
-        ["お試し交際", "お試し交際"],
-        ["貞操逆転", "貞操逆転"],
-        // 対立・緊張
-        ["ライバル", "ライバル"],
-        ["犬猿", "犬猿"],
-        ["宿敵", "宿敵"],
-        ["仇", "仇"],
-        // 歪んだ関係・依存
-        ["セフレ", "セフレ"],
-        ["執着", "執着"],
-        ["愛憎", "愛憎"],
-        ["崇拝", "崇拝"],
-        ["飼育", "飼育"],
-        ["加害被害関係", "加害被害関係"],
-        // 特殊・設定系
-        ["人外と人間", "人外と人間"],
-        ["共犯者", "共犯者"],
-        ["共依存", "共依存"],
-        ["身代わり", "身代わり"],
-        ["救済", "救済"],
-        ["天才/秀才", "天才/秀才"],
-        ["運命共同体", "運命共同体"],
-      ];
-      const OPT_PROGRESSION_TIME = [
-        ["oneshot", "1シナリオ内で最終ラインまで"],
-        ["gradual", "継続を通じて段階を経たい"],
-      ];
-      const OPT_DES_POSITION = [
-        ["top", "攻め希望"],
-        ["bottom", "受け希望"],
-        ["either", "どちらでも"],
-        ["discuss", "要相談"],
-      ];
-      const OPT_CONTACT_RANGE = [
-        ["なし", "なし"],
-        ["包容", "包容"],
-        ["キス", "キス"],
-        ["ソフト（R15）", "ソフト（R15）"],
-        ["ハード（R18）", "ハード（R18）"],
-        ["特殊性癖", "特殊性癖"],
-        ["猟奇的表現（R18G）", "猟奇的表現（R18G）"],
-      ];
-      const OPT_RP_POLICY = [
-        ["rp", "RPをする"],
-        ["narrate", "描写を流すだけ"],
-        ["skip", "描写も要らない（事後）"],
-      ];
-      const OPT_R18_PREF = [
-        ["love", "好き"],
-        ["ok", "普通"],
-        ["ng", "NG"],
-        ["conditional", "条件付き可能"],
-      ];
-      const OPT_R18_POS = [
-        ["offender", "自PC加害 / 攻め"],
-        ["victim", "自PC被害 / 受け"],
-        ["either", "どちらでも"],
-        ["third_party", "第三者のみ"],
-      ];
-      const OPT_BODY_PARTS = [
-        ["メイク", "メイク"],
-        ["まつ毛", "まつ毛"],
-        ["唇", "唇"],
-        ["ほくろ", "ほくろ"],
-        ["胸", "胸"],
-        ["筋肉", "筋肉"],
-        ["腰", "腰"],
-        ["お尻", "お尻"],
-        ["太もも", "太もも"],
-        ["足の長さ", "足の長さ"],
-        ["傷跡・火傷", "傷跡・火傷"],
-      ];
-      const OPT_COLORS = [
-        ["無", "無"],
-        ["赤", "赤"],
-        ["オレンジ", "オレンジ"],
-        ["黄", "黄"],
-        ["緑", "緑"],
-        ["青", "青"],
-        ["紫", "紫"],
-        ["ピンク", "ピンク"],
-      ];
-      const OPT_SENSITIVE = [
-        // 肉体・バイオレンス
-        ["暴力行為", "暴力行為"],
-        ["リョナ", "リョナ"],
-        ["四肢欠損", "四肢欠損"],
-        ["カニバリズム", "カニバリズム"],
-        ["ゴア表現", "ゴア表現"],
-        ["薬物", "薬物"],
-        ["妊娠・出産", "妊娠・出産"],
-        ["女装・男装", "女装・男装"],
-        ["女体化・男体化", "女体化・男体化"],
-        ["スカトロ", "スカトロ"],
-        // 精神・尊厳破壊
-        ["洗脳", "洗脳"],
-        ["廃人化", "廃人化"],
-        ["精神的屈服", "精神的屈服"],
-        ["記憶喪失", "記憶喪失"],
-        ["自己犠牲", "自己犠牲"],
-        ["いじめ・ハラスメント", "いじめ・ハラスメント"],
-        // 関係性・愛執
-        ["依存", "依存"],
-        ["共依存", "共依存"],
-        ["執着", "執着"],
-        ["監禁", "監禁"],
-        ["無理やり", "無理やり"],
-        ["ストーカー", "ストーカー"],
-        ["裏切り", "裏切り"],
-        ["見捨て", "見捨て"],
-        ["見捨てられ", "見捨てられ"],
-        ["仲違い", "仲違い"],
-        ["NTR", "NTR"],
-        ["売春", "売春"],
-        ["人身売買", "人身売買"],
-        ["モブ介入", "モブ介入"],
-        // 運命・倫理・結末
-        ["心中", "心中"],
-        ["死別", "死別"],
-        ["メリバ", "メリバ"],
-        ["近親相姦", "近親相姦"],
-        ["未成年（教師生徒など）", "未成年（教師生徒など）"],
-        ["犯罪行為", "犯罪行為"],
-        ["人外化・寄生", "人外化・寄生"],
-        ["クローン・偽物", "クローン・偽物"],
-      ];
-
       // ── Schema ────────────────────────────────────────────────────────────
+      // EDITOR_SCHEMA は js/schema.js からインポート済み。
       // side: "left" | "right" — maps to the column where this section lives
       // fields[].type: human-readable input type shown as a badge
       // fields[].options: optional [[value, label], ...] for per-option ON/OFF
-      const EDITOR_SCHEMA = [
-        {
-          id: "sec-charpreview",
-          title: "✨ キャラクター予定（ラフ案）",
-          side: "left",
-          fields: [
-            {
-              key: "ownerCharPreview",
-              label: "自分のキャラ予定",
-              type: "テキスト",
-            },
-            {
-              key: "partnerCharPreview",
-              label: "相手のキャラへの希望イメージ",
-              type: "テキスト",
-            },
-          ],
-        },
-        {
-          id: "sec-relreq",
-          title: "💭 関係",
-          side: "left",
-          fields: [
-            {
-              key: "pairGender",
-              label: "今回やりたいペア種別（複数可）",
-              type: "複数選択",
-              options: OPT_PAIR_GENDER,
-            },
-            {
-              key: "relationshipTags",
-              label: "今回やりたい関係タグ（複数可）",
-              type: "複数選択",
-              options: OPT_REL_TAGS,
-            },
-            {
-              key: "desiredRelationship",
-              label: "希望する関係の形",
-              type: "テキスト",
-            },
-            {
-              key: "initialAffection",
-              label: "初期好感度",
-              type: "スライダー",
-            },
-            {
-              key: "finalAffection",
-              label: "最終好感度（想定）",
-              type: "スライダー",
-            },
-            {
-              key: "emotionTypes",
-              label: "感情タイプ（複数可）",
-              type: "動的",
-            },
-            {
-              key: "progressionTime",
-              label: "関係値の進行時間について",
-              type: "複数選択",
-              options: OPT_PROGRESSION_TIME,
-            },
-            {
-              key: "desiredSituation",
-              label: "希望するシチュエーション",
-              type: "テキスト",
-            },
-          ],
-        },
-        {
-          id: "sec-pl3l",
-          title: "💕 性的傾向（接触許容範囲）",
-          side: "left",
-          fields: [
-            {
-              key: "desiredPosition",
-              label: "希望するポジション",
-              type: "選択",
-              options: OPT_DES_POSITION,
-            },
-            {
-              key: "contactRange",
-              label: "物理的接触の許容範囲（複数可）",
-              type: "複数選択",
-              options: OPT_CONTACT_RANGE,
-            },
-            {
-              key: "rpPolicy",
-              label: "描写方針（1つ選択）",
-              type: "選択",
-              options: OPT_RP_POLICY,
-            },
-            { key: "threelComment", label: "補足コメント", type: "テキスト" },
-          ],
-        },
-        {
-          id: "sec-plsensitive",
-          title: "🚫 地雷・センシティブ",
-          side: "left",
-          fields: [
-            {
-              key: "r18Preference",
-              label: "R18 表現の可否",
-              type: "選択",
-              options: OPT_R18_PREF,
-            },
-            {
-              key: "r18Position",
-              label: "R18 可能なポジション",
-              type: "選択",
-              options: OPT_R18_POS,
-            },
-            {
-              key: "r18gPreference",
-              label: "R18G 表現の可否",
-              type: "選択",
-              options: OPT_R18_PREF,
-            },
-            {
-              key: "r18gPosition",
-              label: "R18G 可能なポジション",
-              type: "選択",
-              options: OPT_R18_POS,
-            },
-            {
-              key: "sensitiveTags",
-              label: "センシティブタグ",
-              type: "トグル",
-              options: OPT_SENSITIVE,
-            },
-            { key: "sensitiveNote", label: "補足コメント", type: "テキスト" },
-          ],
-        },
-        {
-          id: "sec-appearance",
-          title: "👤 外見",
-          side: "right",
-          fields: [
-            { key: "ageRange", label: "年齢帯", type: "スライダー" },
-            { key: "heightRange", label: "身長帯", type: "スライダー" },
-            { key: "bodyType", label: "体型", type: "スライダー" },
-            {
-              key: "bodyParts",
-              label:
-                "盛って欲しい、減らして欲しいパーツ（♡盛って欲しい / ✕減らして欲しい）（複数可）",
-              type: "トグル",
-              options: OPT_BODY_PARTS,
-            },
-            { key: "eyeShape", label: "目の形", type: "スライダー" },
-            { key: "eyeSize", label: "目の大きさ", type: "スライダー" },
-            {
-              key: "eyeColorList",
-              label: "目の色（複数可）",
-              type: "カラー",
-              options: OPT_COLORS,
-            },
-            { key: "eyeBrightness", label: "目の明度", type: "スライダー" },
-            { key: "eyeSaturation", label: "目の彩度", type: "スライダー" },
-            { key: "eyebrowAngle", label: "眉のカーブ", type: "スライダー" },
-            { key: "eyebrowThickness", label: "眉の太さ", type: "スライダー" },
-            { key: "eyebrowLength", label: "眉の長さ", type: "スライダー" },
-            {
-              key: "eyebrowEyeDistance",
-              label: "目との距離",
-              type: "スライダー",
-            },
-            { key: "faceImpression1", label: "顔の系統", type: "スライダー" },
-            { key: "faceImpression2", label: "雰囲気", type: "スライダー" },
-            { key: "hairWave", label: "髪質", type: "スライダー" },
-            { key: "hairLength", label: "長さ", type: "スライダー" },
-            {
-              key: "hairColorList",
-              label: "髪色（複数可）",
-              type: "カラー",
-              options: OPT_COLORS,
-            },
-            { key: "hairBrightness", label: "髪の明度", type: "スライダー" },
-            { key: "hairSaturation", label: "髪の彩度", type: "スライダー" },
-            { key: "hairStyle", label: "髪型", type: "テキスト" },
-            { key: "vibe", label: "全体的な雰囲気", type: "テキスト" },
-            { key: "appearanceNG", label: "外見NG要素", type: "テキスト" },
-          ],
-        },
-        {
-          id: "sec-personality",
-          title: "🧠 性格",
-          side: "right",
-          fields: [
-            { key: "lightDark", label: "明るさ", type: "スライダー" },
-            { key: "pastWeight", label: "過去の重さ", type: "スライダー" },
-            { key: "sadismMasochism", label: "S/M気質", type: "スライダー" },
-            { key: "tsunDere", label: "ツン／デレ", type: "スライダー" },
-            {
-              key: "mentalStrength",
-              label: "メンタル強度",
-              type: "スライダー",
-            },
-            { key: "emotionExpression", label: "感情表現", type: "スライダー" },
-            { key: "dependencyLevel", label: "依存度", type: "スライダー" },
-            { key: "initiative", label: "主導権", type: "スライダー" },
-            {
-              key: "personalSpace",
-              label: "パーソナルスペース",
-              type: "スライダー",
-            },
-            { key: "trustStyle", label: "信頼の形", type: "スライダー" },
-            { key: "ethics", label: "倫理観", type: "スライダー" },
-            { key: "extroversion", label: "外向性", type: "スライダー" },
-            { key: "intellectLevel", label: "知的レベル", type: "スライダー" },
-            { key: "secretiveness", label: "隠し事", type: "スライダー" },
-            { key: "innerVoice", label: "心の声", type: "スライダー" },
-            { key: "composure", label: "余裕", type: "スライダー" },
-            { key: "pride", label: "プライド", type: "スライダー" },
-            { key: "emotionWeight", label: "感情の重さ", type: "スライダー" },
-            { key: "possessiveness", label: "独占欲", type: "スライダー" },
-            { key: "sincerity", label: "素直さ", type: "スライダー" },
-            { key: "likes", label: "入れて欲しい性格要素", type: "テキスト" },
-            {
-              key: "dislikes",
-              label: "入れて欲しくない性格要素",
-              type: "テキスト",
-            },
-          ],
-        },
-      ];
+
+      // (ここから下の OPT_* 定数・EDITOR_SCHEMA 定義は schema.js に移管済み)
+
+      // ── State ────────────────────────────────────────────────────────────
+      let currentTemplateId = null; // null = 新規作成 / string = 既存テンプレートの更新
 
       // ── Build editor UI ───────────────────────────────────────────────────
       // Annotation inputs for a section (before/after the entire section body)
@@ -846,7 +466,6 @@
       async function saveTemplate() {
         const btn = document.getElementById("saveBtn");
         btn.disabled = true;
-        setStatus("接続確認中…", "saving");
 
         // Firestore connectivity check
         try {
@@ -857,7 +476,6 @@
             ),
           ]);
         } catch (e) {
-          setStatus("接続エラー: " + e.message, "err");
           showToast("Firestoreに接続できません: " + e.message, true);
           btn.disabled = false;
           return;
@@ -867,30 +485,39 @@
         try {
           template = collectTemplate();
         } catch (e) {
-          setStatus("収集エラー: " + e.message, "err");
+          showToast("収集エラー: " + e.message, true);
           btn.disabled = false;
           return;
         }
-
-        setStatus("保存中…", "saving");
 
         const nameVal =
           (document.getElementById("templateNameInput")?.value || "").trim() ||
           "無題テンプレート";
 
         try {
-          const docRef = await addDoc(collection(db, "templates"), {
-            name: nameVal,
-            template,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          });
-          setStatus("保存完了 ✓ — シートへ移動します…", "saved");
-          setTimeout(() => {
-            window.location.href = `./index.html?templateId=${docRef.id}`;
-          }, 800);
+          if (currentTemplateId) {
+            // 既存テンプレートを更新
+            await setDoc(
+              doc(db, "templates", currentTemplateId),
+              { name: nameVal, template, updatedAt: serverTimestamp() },
+              { merge: true },
+            );
+            showToast("テンプレートを更新しました ✓");
+            btn.disabled = false;
+          } else {
+            // 新規テンプレートを作成 → シートページへ移動
+            const docRef = await addDoc(collection(db, "templates"), {
+              name: nameVal,
+              template,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
+            showToast("保存しました ✓");
+            setTimeout(() => {
+              window.location.href = `./index.html?templateId=${docRef.id}`;
+            }, 800);
+          }
         } catch (e) {
-          setStatus("保存エラー: " + e.message, "err");
           showToast("保存に失敗しました: " + e.message, true);
           btn.disabled = false;
         }
@@ -899,9 +526,6 @@
       // ── Init ─────────────────────────────────────────────────────────────
       async function init() {
         buildEditorUI();
-        setStatus(
-          "トグルで表示切替、テキストをクリックしてラベルを編集できます",
-        );
         document
           .getElementById("saveBtn")
           .addEventListener("click", saveTemplate);
@@ -910,11 +534,6 @@
         const params = new URLSearchParams(location.search);
         const templateId = params.get("templateId");
         if (templateId) {
-          // Update "← シートに戻る" link to keep templateId context
-          const backBtn = document.getElementById("backBtn");
-          if (backBtn) backBtn.href = `./index.html?templateId=${templateId}`;
-
-          setStatus("テンプレートを読み込み中…", "saving");
           try {
             const snap = await getDoc(doc(db, "templates", templateId));
             if (snap.exists()) {
@@ -922,14 +541,13 @@
               loadTemplateIntoEditor(snapData.template);
               const nameInput = document.getElementById("templateNameInput");
               if (nameInput && snapData.name) nameInput.value = snapData.name;
-              setStatus(
-                "既存テンプレートを読み込みました — 編集して保存してください",
-              );
+              currentTemplateId = templateId;
+              showToast("テンプレートを読み込みました");
             } else {
-              setStatus("テンプレートが見つかりません — 新規作成します");
+              showToast("テンプレートが見つかりません — 新規作成します", true);
             }
           } catch (e) {
-            setStatus("読み込みエラー: " + e.message, "err");
+            showToast("読み込みエラー: " + e.message, true);
           }
         }
       }
