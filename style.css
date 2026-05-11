@@ -795,7 +795,7 @@ body {
 .dr-val {
   font-size: 13px;
   font-weight: 600;
-  color: var(--primary);
+  color: #b0b5c8;
 }
 
 .dual-range-track {
@@ -818,7 +818,7 @@ body {
   top: 50%;
   transform: translateY(-50%);
   height: 6px;
-  background: var(--primary);
+  background: #cdd0e0;
   border-radius: 3px;
   pointer-events: none;
 }
@@ -842,8 +842,8 @@ body {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--primary);
-  box-shadow: 0 1px 6px rgba(2, 117, 253, 0.3);
+  background: #b8bcd0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   pointer-events: all;
 }
@@ -852,9 +852,9 @@ body {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--primary);
+  background: #b8bcd0;
   border: none;
-  box-shadow: 0 1px 6px rgba(2, 117, 253, 0.3);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   pointer-events: all;
 }
@@ -1003,6 +1003,83 @@ body {
   padding: 8px 0;
 }
 
+/* ── Save hint (header area) ── */
+
+.hd-save-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.save-hint {
+  font-size: 11px;
+  color: rgba(247, 247, 247, 0.55);
+  letter-spacing: -0.22px;
+  white-space: nowrap;
+}
+
+/* ── Range guide & field hint ── */
+
+.range-guide {
+  font-size: 12px;
+  color: rgba(247, 247, 247, 0.65);
+  margin-top: 10px;
+  letter-spacing: -0.24px;
+  line-height: 1.5;
+}
+
+.field-hint {
+  font-size: 12px;
+  color: var(--text-l);
+  margin-top: 6px;
+  letter-spacing: -0.24px;
+  font-style: italic;
+}
+
+/* ── Detail toggle / collapsible section ── */
+
+.detail-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 20px;
+  padding: 7px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 500px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-m);
+  letter-spacing: -0.26px;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s;
+  user-select: none;
+}
+
+.detail-toggle:hover {
+  background: #ededf4;
+  border-color: #b0b4cc;
+  color: var(--text);
+}
+
+.detail-toggle.open {
+  background: #eeeef8;
+  border-color: #a0a4d0;
+  color: #4a4d8a;
+}
+
+.detail-section {
+  display: none;
+}
+
+.detail-section.open {
+  display: block;
+}
+
 /* Summary view (dead code — kept for backward compatibility) */
 .summary-page {
   max-width: 800px;
@@ -1139,7 +1216,7 @@ body {
   gap: 16px;
   padding: 14px 24px;
   border-bottom: 1px solid var(--border);
-  align-items: center;
+  align-items: start;
 }
 
 .v-row:last-child {
@@ -1157,7 +1234,7 @@ body {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-l);
-  padding-top: 2px;
+  padding-top: 3px;
   letter-spacing: -0.44px;
 }
 
@@ -1198,7 +1275,7 @@ body {
 .vr-fill {
   position: absolute;
   height: 100%;
-  background: #8b8fd0;
+  background: #6366f1;
   border-radius: 999px;
 }
 
